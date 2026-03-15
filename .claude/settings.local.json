@@ -28,7 +28,12 @@
       "Bash(mise exec -- cargo check)",
       "Bash(mise exec -- bunx tsc --noEmit)",
       "Bash(bun run typecheck)",
-      "Bash(npx tsc --noEmit)"
+      "Bash(npx tsc --noEmit)",
+      "Bash(bun add react react-dom)",
+      "Bash(bun add -d @types/react @types/react-dom @vitejs/plugin-react)",
+      "Bash(bun run build)",
+      "Bash(/Users/ggoggam/Projects/clippy/src-tauri/src/lib.rs:*)",
+      "Bash(node -e \" const clippy = require\\(''./src/assets/clippy/agent.ts''\\) || {}; \")"
     ]
   }
 }

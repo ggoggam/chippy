@@ -1,7 +1,7 @@
-import { getCurrentWindow } from "@tauri-apps/api/window";
 import Queue from "./queue";
 import Animator from "./animator";
 import Balloon from "./balloon";
+import { lockClickthrough } from "./clickthrough";
 
 export interface AgentLoaders {
   agent: () => Promise<{ default: any }>;
@@ -21,7 +21,7 @@ export default class Agent {
   _dblClickHandle: () => void;
   _tts: { rate: number; pitch: number; voice: string } | undefined;
 
-  constructor(mapUrl: string, data: any, sounds: any) {
+  constructor(mapUrl: string, data: any, sounds: any, characterName?: string) {
     this._queue = new Queue(this._onQueueEmpty.bind(this));
     this._hidden = false;
     this._idlePromise = null;
@@ -37,10 +37,11 @@ export default class Agent {
       display: "none",
       touchAction: "none",
     });
+    this._el.setAttribute("data-interactive", "");
     document.body.appendChild(this._el);
 
     this._animator = new Animator(this._el, mapUrl, data, sounds);
-    this._balloon = new Balloon(this._el);
+    this._balloon = new Balloon(this._el, characterName);
     this._tts = data.tts;
     this._setupEvents();
   }
@@ -178,7 +179,7 @@ export default class Agent {
 
   speak(text: string, options?: { hold?: boolean; tts?: boolean }) {
     this._addToQueue(function (this: Agent, complete: Function) {
-      this._balloon.speak(complete, text, options?.hold);
+      this._balloon.speak(complete as () => void, text, options?.hold);
       if (options?.tts) this._speakTTS(text);
     }, this);
   }
@@ -288,13 +289,28 @@ export default class Agent {
       e.preventDefault();
       this.pause();
       this._balloon.hide(true);
-      getCurrentWindow().startDragging();
+      lockClickthrough(true);
+
+      const startX = e.clientX;
+      const startY = e.clientY;
+      const startLeft = this._el.offsetLeft;
+      const startTop = this._el.offsetTop;
+
+      const onMove = (e: MouseEvent) => {
+        this._el.style.left = (startLeft + e.clientX - startX) + "px";
+        this._el.style.top = (startTop + e.clientY - startY) + "px";
+      };
+
       const onUp = () => {
+        lockClickthrough(false);
         this._balloon.show();
         this.reposition();
         this.resume();
+        window.removeEventListener("mousemove", onMove);
         window.removeEventListener("mouseup", onUp);
       };
+
+      window.addEventListener("mousemove", onMove);
       window.addEventListener("mouseup", onUp);
     });
     this._el.addEventListener("dblclick", this._dblClickHandle);
@@ -382,13 +398,13 @@ export default class Agent {
   }
 }
 
-export async function initAgent(loaders: AgentLoaders): Promise<Agent> {
+export async function initAgent(loaders: AgentLoaders, characterName?: string): Promise<Agent> {
   const [{ default: data }, { default: map }, sounds] = await Promise.all([
     loaders.agent(),
     loaders.map(),
     _loadSounds(loaders),
   ]);
-  return new Agent(map, data, sounds);
+  return new Agent(map, data, sounds, characterName);
 }
 
 async function _loadSounds(loaders: AgentLoaders): Promise<Record<string, string>> {
