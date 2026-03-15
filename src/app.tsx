@@ -60,6 +60,7 @@ export default function App() {
             actionResolved = true;
             const { action, text: remaining } = parseAction(buffer);
             if (action && agent.hasAnimation(action)) {
+              agent._animator.exitAnimation(); // Exit Thinking early
               agent.play(action);
             }
             if (remaining) stream.push(remaining);

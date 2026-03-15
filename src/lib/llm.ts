@@ -24,7 +24,9 @@ export const ACTION_ANIMATIONS: Record<string, string> = {
 
 function buildSystemPrompt(actions: string[]): string {
   const available = actions.filter((a) => a in ACTION_ANIMATIONS);
-  const list = available.map((a) => `- ${a}: ${ACTION_ANIMATIONS[a]}`).join("\n");
+  const list = available
+    .map((a) => `- ${a}: ${ACTION_ANIMATIONS[a]}`)
+    .join("\n");
   return `You are a helpful desktop assistant character. Keep responses concise (2-3 sentences max).
 
 You MUST start every response with an action tag on its own line that determines your animation. Format: [action:ActionName]
@@ -40,7 +42,10 @@ The map function transforms each element in an array using a callback.`;
 }
 
 /** Parse "[action:Name]" prefix from streamed text. Returns action and remaining text. */
-export function parseAction(raw: string): { action: string | null; text: string } {
+export function parseAction(raw: string): {
+  action: string | null;
+  text: string;
+} {
   const match = raw.match(/^\[action:(\w+)\]\n?/);
   if (match) {
     return { action: match[1], text: raw.slice(match[0].length) };
