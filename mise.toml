@@ -1,0 +1,9 @@
+[tools]
+bun = "latest"
+rust = "latest"
+
+[tasks.preview]
+run = "bun run dev"
+
+[tasks.dev]
+run = "bun run tauri dev"

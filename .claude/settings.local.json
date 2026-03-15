@@ -1,0 +1,34 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(mise list)",
+      "Bash(bun --version)",
+      "Bash(rustc --version)",
+      "Bash(cargo --version)",
+      "Bash(bunx create-tauri-app@latest . --template vanilla-ts --manager bun --yes)",
+      "Bash(bunx create-tauri-app@latest . --template vanilla-ts --manager bun --force)",
+      "Bash(bunx create-tauri-app@latest --template vanilla-ts --manager bun --identifier com.clippy.app --app-name clippy --yes -- .)",
+      "Bash(mv /Users/ggoggam/Projects/clippy/clippy/* /Users/ggoggam/Projects/clippy/)",
+      "Bash(mv /Users/ggoggam/Projects/clippy/clippy/.[!.]* /Users/ggoggam/Projects/clippy/)",
+      "Bash(bun install)",
+      "Bash(curl -L \"https://github.com/clippyjs/clippy-assets/archive/refs/heads/master.zip\" -o /tmp/clippy-assets.zip)",
+      "Read(//private/tmp/**)",
+      "Bash(curl -L \"https://github.com/pi0/clippyjs/archive/refs/heads/master.zip\" -o /tmp/clippyjs.zip)",
+      "Bash(unzip -q /tmp/clippyjs.zip -d /tmp/clippyjs)",
+      "Bash(cp -r /tmp/clippyjs/clippy-main/src/agents/clippy /Users/ggoggam/Projects/clippy/src/assets/clippy)",
+      "Bash(cp -r /tmp/clippyjs/clippy-main/src/agents/rocky /Users/ggoggam/Projects/clippy/src/assets/rocky)",
+      "Bash(bunx tsc --noEmit)",
+      "Bash(grep -E \"\\\\.\\(json|toml|yaml\\)$\")",
+      "Skill(claude-api)",
+      "Skill(claude-api:*)",
+      "Bash(bun add @anthropic-ai/sdk)",
+      "Bash(bun run dev)",
+      "Bash(cargo check)",
+      "Bash(export PATH=\"$HOME/.cargo/bin:$PATH\")",
+      "Bash(mise exec -- cargo check)",
+      "Bash(mise exec -- bunx tsc --noEmit)",
+      "Bash(bun run typecheck)",
+      "Bash(npx tsc --noEmit)"
+    ]
+  }
+}
