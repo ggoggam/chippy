@@ -39,9 +39,9 @@ export interface AgentHandle {
   dispose(): void;
   pause(): void;
   resume(): void;
-  enableInput(onSubmit: (text: string) => void): void;
+  enableInput(onSubmit: (text: string, images: string[]) => void): void;
   focusInput(): void;
-  addMessage(role: "user" | "assistant", text: string): void;
+  addMessage(role: "user" | "assistant", text: string, images?: string[]): void;
   streamMessage(): {
     push: (chunk: string) => void;
     done: () => void;
@@ -480,11 +480,11 @@ const AgentComponent = forwardRef<AgentHandle, AgentProps>(
           dispose,
           pause,
           resume,
-          enableInput: (onSubmit: (text: string) => void) =>
+          enableInput: (onSubmit: (text: string, images: string[]) => void) =>
             balloonRef.current?.enableInput(onSubmit),
           focusInput: () => balloonRef.current?.focusInput(),
-          addMessage: (role: "user" | "assistant", text: string) =>
-            balloonRef.current?.addMessage(role, text),
+          addMessage: (role: "user" | "assistant", text: string, images?: string[]) =>
+            balloonRef.current?.addMessage(role, text, images),
           streamMessage: () => balloonRef.current!.streamMessage(),
           exitAnimation: () => animatorRef.current?.exitAnimation(),
           getElement: () => elRef.current,

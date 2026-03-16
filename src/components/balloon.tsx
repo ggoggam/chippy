@@ -5,6 +5,7 @@ import {
   useState,
   useEffect,
   useCallback,
+  type DragEvent,
 } from "react";
 import { createPortal } from "react-dom";
 
@@ -20,9 +21,9 @@ export interface BalloonHandle {
   pause(): void;
   resume(): void;
   reposition(): void;
-  enableInput(onSubmit: (text: string) => void): void;
+  enableInput(onSubmit: (text: string, images: string[]) => void): void;
   focusInput(): void;
-  addMessage(role: "user" | "assistant", text: string): void;
+  addMessage(role: "user" | "assistant", text: string, images?: string[]): void;
   streamMessage(): {
     push: (chunk: string) => void;
     done: () => void;
@@ -36,7 +37,6 @@ interface BalloonProps {
   characterName?: string;
 }
 
-
 const WORD_SPEAK_TIME = 200;
 const CLOSE_BALLOON_DELAY = 5000;
 const BALLOON_MARGIN = 15;
@@ -45,7 +45,105 @@ interface Message {
   id: number;
   role: "user" | "assistant";
   text: string;
+  images?: string[];
 }
+
+const WIN98_FONT = "font-[Tahoma,Microsoft_Sans_Serif,sans-serif] text-[11px]";
+
+function CodeBlock({ lang, code }: { lang: string; code: string }) {
+  const [copied, setCopied] = useState(false);
+
+  const handleClick = () => {
+    navigator.clipboard.writeText(code).then(() => {
+      setCopied(true);
+      setTimeout(() => setCopied(false), 1200);
+    });
+  };
+
+  return (
+    <div
+      className="my-1 border border-[#808080] shadow-[inset_1px_1px_0_#404040] cursor-pointer relative group"
+      onClick={handleClick}
+      title="Click to copy"
+    >
+      {lang && (
+        <div className="bg-[#000080] text-[#c0c0c0] text-[9px] font-[Tahoma,sans-serif] px-1.5 py-[1px] border-b border-[#808080]">
+          {lang}
+        </div>
+      )}
+      <pre className="bg-[#012] text-[#33ff33] font-[Fixedsys,Terminal,'Courier_New',monospace] text-[11px] leading-[1.3] p-1.5 m-0 overflow-x-auto whitespace-pre-wrap break-words win95-scrollbar">
+        {code}
+      </pre>
+      {copied && (
+        <div className="absolute top-1 right-1 bg-[#000080] text-white text-[9px] font-[Tahoma,sans-serif] px-1.5 py-[1px] border border-[#c0c0c0]">
+          Copied!
+        </div>
+      )}
+    </div>
+  );
+}
+
+function renderMessageText(text: string) {
+  // Split on fenced code blocks first, then handle inline code
+  const parts: React.ReactNode[] = [];
+  const fencedRegex = /```(\w*)\n?([\s\S]*?)```/g;
+  let lastIndex = 0;
+  let match: RegExpExecArray | null;
+
+  while ((match = fencedRegex.exec(text)) !== null) {
+    // Text before the code block
+    if (match.index > lastIndex) {
+      parts.push(
+        ...renderInlineCode(text.slice(lastIndex, match.index), parts.length),
+      );
+    }
+    // Fenced code block — old terminal style
+    const code = match[2].replace(/\n$/, "");
+    parts.push(
+      <CodeBlock key={`code-${parts.length}`} lang={match[1]} code={code} />,
+    );
+    lastIndex = match.index + match[0].length;
+  }
+
+  // Remaining text after last code block
+  if (lastIndex < text.length) {
+    parts.push(...renderInlineCode(text.slice(lastIndex), parts.length));
+  }
+
+  return parts.length > 0 ? parts : text;
+}
+
+function renderInlineCode(text: string, keyOffset: number): React.ReactNode[] {
+  const parts: React.ReactNode[] = [];
+  const inlineRegex = /`([^`]+)`/g;
+  let lastIndex = 0;
+  let match: RegExpExecArray | null;
+
+  while ((match = inlineRegex.exec(text)) !== null) {
+    if (match.index > lastIndex) {
+      parts.push(text.slice(lastIndex, match.index));
+    }
+    parts.push(
+      <code
+        key={`ic-${keyOffset}-${parts.length}`}
+        className="bg-[#012] text-[#33ff33] font-[Fixedsys,Terminal,'Courier_New',monospace] text-[10px] px-[3px] py-[1px] border border-[#808080] shadow-[inset_1px_1px_0_#404040]"
+      >
+        {match[1]}
+      </code>,
+    );
+    lastIndex = match.index + match[0].length;
+  }
+
+  if (lastIndex < text.length) {
+    parts.push(text.slice(lastIndex));
+  }
+
+  return parts;
+}
+const WIN98_BORDER =
+  "border-2 border-solid border-t-white border-l-white border-b-[#808080] border-r-[#808080]";
+const WIN98_BORDER_INSET =
+  "border-2 border-solid border-t-[#808080] border-l-[#808080] border-b-white border-r-white";
 
 const Balloon = forwardRef<BalloonHandle, BalloonProps>(function Balloon(
   { targetEl, characterName = "Clippy" },
@@ -55,14 +153,14 @@ const Balloon = forwardRef<BalloonHandle, BalloonProps>(function Balloon(
   const inputRef = useRef<HTMLInputElement>(null);
 
   const [visible, setVisible] = useState(false);
-  // Anchored by bottom-right so balloon grows upward/leftward as content expands
   const [anchor, setAnchor] = useState({ bottom: -9999, right: -9999 });
   const [speakContent, setSpeakContent] = useState("");
   const [messages, setMessages] = useState<Message[]>([]);
   const [inputEnabled, setInputEnabled] = useState(false);
   const [inputValue, setInputValue] = useState("");
+  const [minimized, setMinimized] = useState(false);
+  const [pendingImages, setPendingImages] = useState<string[]>([]);
 
-  // Imperative state kept in refs to avoid stale closures
   const hiddenRef = useRef(true);
   const activeRef = useRef(false);
   const holdRef = useRef(false);
@@ -70,11 +168,12 @@ const Balloon = forwardRef<BalloonHandle, BalloonProps>(function Balloon(
   const loopRef = useRef<number | undefined>(undefined);
   const addWordRef = useRef<(() => void) | undefined>(undefined);
   const completeRef = useRef<() => void>(() => {});
-  const onSubmitRef = useRef<((text: string) => void) | null>(null);
+  const fileInputRef = useRef<HTMLInputElement>(null);
+  const onSubmitRef = useRef<((text: string, images: string[]) => void) | null>(
+    null,
+  );
   const msgIdRef = useRef(0);
 
-  // Anchor the balloon's bottom-right corner to the character's top-right area.
-  // As content grows the balloon expands upward and leftward — anchor stays fixed.
   const reposition = useCallback(() => {
     if (!targetEl) return;
     const o = targetEl.getBoundingClientRect();
@@ -218,7 +317,7 @@ const Balloon = forwardRef<BalloonHandle, BalloonProps>(function Balloon(
         }
       },
 
-      enableInput(onSubmit: (text: string) => void) {
+      enableInput(onSubmit: (text: string, images: string[]) => void) {
         onSubmitRef.current = onSubmit;
         setInputEnabled(true);
         hiddenRef.current = false;
@@ -230,11 +329,14 @@ const Balloon = forwardRef<BalloonHandle, BalloonProps>(function Balloon(
         inputRef.current?.focus();
       },
 
-      addMessage(role: "user" | "assistant", text: string) {
+      addMessage(role: "user" | "assistant", text: string, images?: string[]) {
         setMessages((prev) => [
           ...prev,
-          { id: msgIdRef.current++, role, text },
+          { id: msgIdRef.current++, role, text, images },
         ]);
+        hiddenRef.current = false;
+        setVisible(true);
+        setMinimized(false);
       },
 
       streamMessage() {
@@ -272,60 +374,40 @@ const Balloon = forwardRef<BalloonHandle, BalloonProps>(function Balloon(
     }
   }, [messages]);
 
+  const addImageFiles = useCallback((files: FileList | File[]) => {
+    Array.from(files)
+      .filter((f) => f.type.startsWith("image/"))
+      .forEach((file) => {
+        const reader = new FileReader();
+        reader.onload = (e) => {
+          if (e.target?.result)
+            setPendingImages((prev) => [...prev, e.target!.result as string]);
+        };
+        reader.readAsDataURL(file);
+      });
+  }, []);
+
   const submitInput = useCallback(() => {
     const text = inputValue.trim();
-    if (!text || !onSubmitRef.current) return;
+    if ((!text && pendingImages.length === 0) || !onSubmitRef.current) return;
+    const images = pendingImages;
     setInputValue("");
-    onSubmitRef.current(text);
-  }, [inputValue]);
-
+    setPendingImages([]);
+    onSubmitRef.current(text, images);
+  }, [inputValue, pendingImages]);
 
   return createPortal(
     <div
       data-interactive
+      className={`fixed z-[10001] cursor-default bg-[#d4d0c8] text-black ${WIN98_BORDER} shadow-[1px_1px_0_#000000] ${inputEnabled ? "p-0 w-80" : "p-2 max-w-[230px]"} ${visible ? "block" : "hidden"}`}
       style={{
-        position: "fixed",
-        zIndex: 10001,
-        cursor: "pointer",
-        background: "#ffc",
-        color: "black",
-        padding: "8px",
-        border: "1px solid black",
-        borderRadius: "5px",
-        display: visible ? "block" : "none",
-        maxWidth: inputEnabled ? "none" : "230px",
-        width: inputEnabled ? "230px" : undefined,
         bottom: anchor.bottom,
         right: anchor.right,
       }}
     >
-      <svg
-        style={{
-          position: "absolute",
-          top: "calc(100% - 1px)",
-          right: "10px",
-          display: "block",
-          overflow: "visible",
-        }}
-        width="20"
-        height="16"
-        viewBox="0 0 20 16"
-      >
-        <polygon points="0,0 14,0 3,16" fill="#ffc" stroke="black" strokeWidth="1" />
-        <line x1="-1" y1="0" x2="15" y2="0" stroke="#ffc" strokeWidth="3" />
-      </svg>
-
       {!inputEnabled && (
         <div
-          style={{
-            maxWidth: "200px",
-            minWidth: "120px",
-            fontFamily: '"Microsoft Sans Serif", sans-serif',
-            fontSize: "10pt",
-            whiteSpace: "pre-wrap",
-            wordWrap: "break-word",
-            overflowWrap: "break-word",
-          }}
+          className={`max-w-[200px] min-w-[120px] ${WIN98_FONT} whitespace-pre-wrap break-words`}
         >
           {speakContent}
         </div>
@@ -333,80 +415,141 @@ const Balloon = forwardRef<BalloonHandle, BalloonProps>(function Balloon(
 
       {inputEnabled && (
         <>
-          <div
-            ref={historyRef}
-            style={{
-              display: "flex",
-              flexDirection: "column",
-              maxHeight: "500px",
-              overflowY: "auto",
-              padding: "4px 0 2px",
-              fontFamily: '"Microsoft Sans Serif", sans-serif',
-              fontSize: "10px",
-              lineHeight: "1.4",
-            }}
-          >
-            {messages.map((msg) => (
-              <div key={msg.id}>
-                <b
-                  style={{ color: msg.role === "user" ? "#000080" : "#006400" }}
-                >
-                  {msg.role === "user" ? "You: " : `${characterName}: `}
-                </b>
-                {msg.text}
-              </div>
-            ))}
-          </div>
-          <div
-            style={{ borderTop: "1px solid #888", margin: "4px -8px 2px" }}
-          />
-          <div
-            style={{
-              display: "flex",
-              alignItems: "center",
-              gap: "4px",
-              paddingTop: "4px",
-            }}
-          >
-            <input
-              ref={inputRef}
-              type="text"
-              placeholder="Ask me something..."
-              value={inputValue}
-              onChange={(e) => setInputValue(e.target.value)}
-              onKeyDown={(e) => {
-                if (e.key === "Enter") submitInput();
-                if (e.key === "Escape") inputRef.current?.blur();
-              }}
-              style={{
-                flex: "1",
-                minWidth: "0",
-                fontFamily: '"Microsoft Sans Serif", sans-serif',
-                fontSize: "10px",
-                border: "1px inset #888",
-                background: "#fff",
-                padding: "2px 4px",
-                outline: "none",
-              }}
-            />
-            <button
-              style={{
-                fontFamily: '"Microsoft Sans Serif", sans-serif',
-                fontSize: "10px",
-                background: "#d4d0c8",
-                border: "2px solid",
-                borderColor: "#ffffff #808080 #808080 #ffffff",
-                padding: "1px 5px",
-                cursor: "pointer",
-                whiteSpace: "nowrap",
-                flexShrink: 0,
-              }}
-              onMouseDown={(e) => e.preventDefault()}
-              onClick={submitInput}
+          {/* Title bar */}
+          <div className="flex items-center justify-between bg-gradient-to-r from-[#000080] to-[#1084d0] py-[2px] pr-[2px] pl-1 gap-1">
+            <span
+              className={`${WIN98_FONT} font-bold text-white flex-1 overflow-hidden whitespace-nowrap text-ellipsis`}
             >
-              OK
-            </button>
+              Chat with {characterName}
+            </span>
+            <div className="flex gap-[2px]">
+              <button
+                className={`${WIN98_FONT} text-[10px] font-bold bg-[#d4d0c8] ${WIN98_BORDER} w-[16px] h-[15px] px-[3px] py-0 cursor-pointer flex items-center justify-center shrink-0 leading-none`}
+                onMouseDown={(e) => e.preventDefault()}
+                onClick={() => setMinimized((m) => !m)}
+                title="Minimize"
+              >
+                _
+              </button>
+              <button
+                className={`${WIN98_FONT} text-[10px] font-bold bg-[#d4d0c8] ${WIN98_BORDER} w-[16px] h-[15px] px-[3px] py-0 cursor-pointer flex items-center justify-center shrink-0 leading-none`}
+                onMouseDown={(e) => e.preventDefault()}
+                onClick={() => setVisible(false)}
+                title="Close"
+              >
+                ✕
+              </button>
+            </div>
           </div>
+
+          {!minimized && (
+            <div
+              className="p-2 flex flex-col gap-2"
+              onDragOver={(e: DragEvent<HTMLDivElement>) => {
+                e.preventDefault();
+                e.dataTransfer.dropEffect = "copy";
+              }}
+              onDrop={(e: DragEvent<HTMLDivElement>) => {
+                e.preventDefault();
+                if (e.dataTransfer.files.length)
+                  addImageFiles(e.dataTransfer.files);
+              }}
+            >
+              <div
+                ref={historyRef}
+                className={`flex flex-col max-h-[40vh] overflow-y-auto py-1 ${WIN98_FONT} leading-[1.4] win95-scrollbar`}
+              >
+                {messages.map((msg) => (
+                  <div key={msg.id} className="mb-[2px]">
+                    <b
+                      className={
+                        msg.role === "user"
+                          ? "text-[#000080]"
+                          : "text-[#006400]"
+                      }
+                    >
+                      {msg.role === "user" ? "You: " : `${characterName}: `}
+                    </b>
+                    {renderMessageText(msg.text)}
+                    {msg.images && msg.images.length > 0 && (
+                      <div className="flex flex-wrap gap-1 mt-1">
+                        {msg.images.map((src, i) => (
+                          <img
+                            key={i}
+                            src={src}
+                            className="max-w-[72px] max-h-[72px] object-cover border border-[#808080]"
+                          />
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                ))}
+              </div>
+              {pendingImages.length > 0 && (
+                <div className="flex flex-wrap gap-1">
+                  {pendingImages.map((src, i) => (
+                    <div key={i} className="relative">
+                      <img
+                        src={src}
+                        className="max-w-[48px] max-h-[48px] object-cover border border-[#808080]"
+                      />
+                      <button
+                        className="absolute -top-1 -right-1 w-3.5 h-3.5 bg-[#d4d0c8] border border-[#808080] text-[8px] leading-none flex items-center justify-center cursor-pointer"
+                        onMouseDown={(e) => e.preventDefault()}
+                        onClick={() =>
+                          setPendingImages((prev) =>
+                            prev.filter((_, j) => j !== i),
+                          )
+                        }
+                      >
+                        ✕
+                      </button>
+                    </div>
+                  ))}
+                </div>
+              )}
+              <div className="flex items-center gap-1">
+                <input
+                  ref={inputRef}
+                  type="text"
+                  placeholder="Ask me something..."
+                  value={inputValue}
+                  onChange={(e) => setInputValue(e.target.value)}
+                  onKeyDown={(e) => {
+                    if (e.key === "Enter") submitInput();
+                    if (e.key === "Escape") inputRef.current?.blur();
+                  }}
+                  className={`flex-1 min-w-0 ${WIN98_FONT} ${WIN98_BORDER_INSET} bg-white py-[2px] px-1 outline-none`}
+                />
+                <input
+                  ref={fileInputRef}
+                  id="balloon-file-input"
+                  type="file"
+                  accept="image/*"
+                  multiple
+                  className="hidden"
+                  onChange={(e) => {
+                    if (e.target.files) addImageFiles(e.target.files);
+                    e.target.value = "";
+                  }}
+                />
+                <label
+                  htmlFor="balloon-file-input"
+                  className={`${WIN98_FONT} bg-[#d4d0c8] ${WIN98_BORDER} py-[1px] px-[3px] cursor-pointer shrink-0 select-none`}
+                  title="Attach image"
+                >
+                  🖼
+                </label>
+                <button
+                  className={`${WIN98_FONT} bg-[#d4d0c8] ${WIN98_BORDER} py-[1px] px-[5px] cursor-pointer whitespace-nowrap shrink-0`}
+                  onMouseDown={(e) => e.preventDefault()}
+                  onClick={submitInput}
+                >
+                  OK
+                </button>
+              </div>
+            </div>
+          )}
         </>
       )}
     </div>,

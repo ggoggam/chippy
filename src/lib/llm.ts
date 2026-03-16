@@ -84,14 +84,29 @@ export class LLMClient {
     this.history = [];
   }
 
-  async *chat(userText: string): AsyncIterable<string> {
+  async *chat(userText: string, images: string[] = []): AsyncIterable<string> {
     if (!this.client) throw new Error("no_api_key");
 
-    this.history.push({ role: "user", content: userText });
+    const content: Anthropic.ContentBlockParam[] = [];
+    for (const dataUrl of images) {
+      const [meta, data] = dataUrl.split(",");
+      const mediaType = (meta.match(/data:([^;]+)/)?.[1] ??
+        "image/png") as Anthropic.Base64ImageSource["media_type"];
+      content.push({
+        type: "image",
+        source: { type: "base64", media_type: mediaType, data },
+      });
+    }
+    content.push({ type: "text", text: userText || "(image)" });
+
+    this.history.push({
+      role: "user",
+      content: images.length ? content : userText,
+    });
 
     const stream = this.client.messages.stream({
       model: "claude-haiku-4-5",
-      max_tokens: 256,
+      max_tokens: 4096,
       system: buildSystemPrompt(this._availableActions),
       messages: this.history,
     });

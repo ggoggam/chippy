@@ -33,7 +33,8 @@
       "Bash(bun add -d @types/react @types/react-dom @vitejs/plugin-react)",
       "Bash(bun run build)",
       "Bash(/Users/ggoggam/Projects/clippy/src-tauri/src/lib.rs:*)",
-      "Bash(node -e \" const clippy = require\\(''./src/assets/clippy/agent.ts''\\) || {}; \")"
+      "Bash(node -e \" const clippy = require\\(''./src/assets/clippy/agent.ts''\\) || {}; \")",
+      "Bash(bun add -d tailwindcss @tailwindcss/vite)"
     ]
   }
 }

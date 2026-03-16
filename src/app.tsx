@@ -49,11 +49,11 @@ export default function App() {
     sounds: Record<string, string>;
   } | null>(null);
 
-  const handleChat = useCallback(async (text: string) => {
+  const handleChat = useCallback(async (text: string, images: string[] = []) => {
     const agent = agentRef.current;
     if (!agent) return;
 
-    agent.addMessage("user", text);
+    agent.addMessage("user", text, images);
 
     if (!llmRef.getApiKey()) {
       agent.addMessage(
@@ -70,7 +70,7 @@ export default function App() {
       let buffer = "";
       let actionResolved = false;
 
-      for await (const chunk of llmRef.chat(text)) {
+      for await (const chunk of llmRef.chat(text, images)) {
         if (!actionResolved) {
           buffer += chunk;
           const closingIdx = buffer.indexOf("]");
@@ -162,15 +162,17 @@ export default function App() {
     {
       label: "Switch to Clippy",
       action: () => switchCharacter("Clippy"),
+      checked: characterName === "Clippy",
     },
     {
       label: "Switch to Rocky",
       action: () => switchCharacter("Rocky"),
+      checked: characterName === "Rocky",
     },
     "separator",
     {
-      label: "Chat...",
-      action: () => agentRef.current?.focusInput(),
+      label: "New Chat",
+      action: () => llmRef.clearHistory(),
     },
     {
       label: "Animate",

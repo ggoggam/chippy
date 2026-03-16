@@ -7,6 +7,10 @@ interface SettingsPanelProps {
   onClose: () => void;
 }
 
+const WIN98_FONT = "font-[Tahoma,Microsoft_Sans_Serif,sans-serif] text-[11px]";
+const WIN98_BORDER = "border-2 border-solid border-t-white border-l-white border-b-[#808080] border-r-[#808080]";
+const WIN98_BORDER_INSET = "border-2 border-solid border-t-[#808080] border-l-[#808080] border-b-white border-r-white";
+
 export default function SettingsPanel({ targetEl, currentKey, onSave, onClose }: SettingsPanelProps) {
   const [value, setValue] = useState(currentKey ?? "");
   const elRef = useRef<HTMLDivElement>(null);
@@ -50,8 +54,12 @@ export default function SettingsPanel({ targetEl, currentKey, onSave, onClose }:
   }
 
   return (
-    <div ref={elRef} data-interactive style={panelStyle}>
-      <div style={labelStyle}>Anthropic API Key:</div>
+    <div
+      ref={elRef}
+      data-interactive
+      className={`fixed z-[10002] flex flex-col gap-1.5 bg-[#d4d0c8] ${WIN98_BORDER} p-2 shadow-[1px_1px_0_#000000]`}
+    >
+      <div className={WIN98_FONT}>Anthropic API Key:</div>
       <input
         ref={inputRef}
         type="password"
@@ -62,51 +70,12 @@ export default function SettingsPanel({ targetEl, currentKey, onSave, onClose }:
           if (e.key === "Enter") handleSave();
           if (e.key === "Escape") onClose();
         }}
-        style={inputStyle}
+        className={`w-[220px] ${WIN98_FONT} ${WIN98_BORDER_INSET} bg-white py-[2px] px-1 outline-none`}
       />
-      <div style={{ display: "flex", gap: "4px" }}>
-        <button style={btnStyle} onClick={handleSave}>Save</button>
-        <button style={btnStyle} onClick={onClose}>Cancel</button>
+      <div className="flex gap-1">
+        <button className={`${WIN98_FONT} bg-[#d4d0c8] ${WIN98_BORDER} py-[2px] px-2.5 cursor-pointer`} onClick={handleSave}>Save</button>
+        <button className={`${WIN98_FONT} bg-[#d4d0c8] ${WIN98_BORDER} py-[2px] px-2.5 cursor-pointer`} onClick={onClose}>Cancel</button>
       </div>
     </div>
   );
 }
-
-const panelStyle: React.CSSProperties = {
-  position: "fixed",
-  zIndex: 10002,
-  display: "flex",
-  flexDirection: "column",
-  gap: "6px",
-  background: "#d4d0c8",
-  border: "2px solid",
-  borderColor: "#ffffff #808080 #808080 #ffffff",
-  padding: "8px",
-  boxShadow: "1px 1px 0 #000000",
-};
-
-const labelStyle: React.CSSProperties = {
-  fontFamily: '"Tahoma", "Microsoft Sans Serif", sans-serif',
-  fontSize: "11px",
-};
-
-const inputStyle: React.CSSProperties = {
-  width: "220px",
-  fontFamily: '"Tahoma", "Microsoft Sans Serif", sans-serif',
-  fontSize: "11px",
-  border: "2px solid",
-  borderColor: "#808080 #ffffff #ffffff #808080",
-  background: "#ffffff",
-  padding: "2px 4px",
-  outline: "none",
-};
-
-const btnStyle: React.CSSProperties = {
-  fontFamily: '"Tahoma", "Microsoft Sans Serif", sans-serif',
-  fontSize: "11px",
-  background: "#d4d0c8",
-  border: "2px solid",
-  borderColor: "#ffffff #808080 #808080 #ffffff",
-  padding: "2px 10px",
-  cursor: "pointer",
-};
