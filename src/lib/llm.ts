@@ -53,14 +53,36 @@ export function parseAction(raw: string): {
   return { action: null, text: raw };
 }
 
+export const MODELS = [
+  { id: "claude-haiku-4-5", label: "Haiku 4.5" },
+  { id: "claude-sonnet-4-6", label: "Sonnet 4.6" },
+  { id: "claude-opus-4-6", label: "Opus 4.6" },
+] as const;
+
+export type ModelId = (typeof MODELS)[number]["id"];
+
+const DEFAULT_MODEL: ModelId = "claude-haiku-4-5";
+
 export class LLMClient {
   private client: Anthropic | null = null;
   private history: Anthropic.MessageParam[] = [];
   private _availableActions: string[] = [];
+  private _model: ModelId;
 
   constructor() {
     const key = this.getApiKey();
     if (key) this._init(key);
+    const saved = localStorage.getItem("model") as ModelId | null;
+    this._model = saved && MODELS.some((m) => m.id === saved) ? saved : DEFAULT_MODEL;
+  }
+
+  getModel(): ModelId {
+    return this._model;
+  }
+
+  setModel(model: ModelId) {
+    this._model = model;
+    localStorage.setItem("model", model);
   }
 
   private _init(key: string) {
@@ -105,7 +127,7 @@ export class LLMClient {
     });
 
     const stream = this.client.messages.stream({
-      model: "claude-haiku-4-5",
+      model: this._model,
       max_tokens: 4096,
       system: buildSystemPrompt(this._availableActions),
       messages: this.history,

@@ -4,7 +4,7 @@ import AgentComponent, {
   type AgentLoaders,
   type AgentHandle,
 } from "./components/agent";
-import { LLMClient, parseAction, ACTION_ANIMATIONS } from "./lib/llm";
+import { LLMClient, parseAction, ACTION_ANIMATIONS, MODELS, type ModelId } from "./lib/llm";
 import ContextMenu, { type MenuItem } from "./components/context-menu";
 import SettingsPanel from "./components/settings-panel";
 import {
@@ -43,6 +43,7 @@ export default function App() {
     const saved = localStorage.getItem("character") as CharacterName;
     return saved in CHARACTERS ? saved : "Clippy";
   });
+  const [model, setModel] = useState<ModelId>(() => llmRef.getModel());
   const [agentData, setAgentData] = useState<{
     mapUrl: string;
     data: any;
@@ -158,6 +159,11 @@ export default function App() {
     setCharacterName(name);
   }, []);
 
+  const switchModel = useCallback((id: ModelId) => {
+    llmRef.setModel(id);
+    setModel(id);
+  }, []);
+
   const menuItems: MenuItem[] = [
     {
       label: "Switch to Clippy",
@@ -169,6 +175,12 @@ export default function App() {
       action: () => switchCharacter("Rocky"),
       checked: characterName === "Rocky",
     },
+    "separator",
+    ...MODELS.map((m) => ({
+      label: m.label,
+      action: () => switchModel(m.id),
+      checked: model === m.id,
+    })),
     "separator",
     {
       label: "New Chat",
