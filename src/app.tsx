@@ -1,10 +1,16 @@
 import { useState, useEffect, useCallback, useRef } from "react";
-import { initAgent, type AgentLoaders } from "./lib/agent";
-import type Agent from "./lib/agent";
+import AgentComponent, {
+  loadAgentData,
+  type AgentLoaders,
+  type AgentHandle,
+} from "./components/agent";
 import { LLMClient, parseAction, ACTION_ANIMATIONS } from "./lib/llm";
 import ContextMenu, { type MenuItem } from "./components/context-menu";
 import SettingsPanel from "./components/settings-panel";
-import { startClickthroughTracking, stopClickthroughTracking } from "./lib/clickthrough";
+import {
+  startClickthroughTracking,
+  stopClickthroughTracking,
+} from "./lib/clickthrough";
 
 type CharacterName = "Clippy" | "Rocky";
 
@@ -22,31 +28,44 @@ const CHARACTERS: Record<CharacterName, AgentLoaders> = {
 };
 
 const GREETINGS: Record<CharacterName, string> = {
-  Clippy: "It looks like you're building something. Would you like help with that?",
+  Clippy:
+    "It looks like you're building something. Would you like help with that?",
   Rocky: "...",
 };
 
 const llmRef = new LLMClient();
 
 export default function App() {
-  const agentRef = useRef<Agent | null>(null);
+  const agentRef = useRef<AgentHandle>(null);
   const [menu, setMenu] = useState<{ x: number; y: number } | null>(null);
   const [settingsOpen, setSettingsOpen] = useState(false);
+  const [characterName, setCharacterName] = useState<CharacterName>(() => {
+    const saved = localStorage.getItem("character") as CharacterName;
+    return saved in CHARACTERS ? saved : "Clippy";
+  });
+  const [agentData, setAgentData] = useState<{
+    mapUrl: string;
+    data: any;
+    sounds: Record<string, string>;
+  } | null>(null);
 
   const handleChat = useCallback(async (text: string) => {
     const agent = agentRef.current;
     if (!agent) return;
 
-    agent._balloon.addMessage("user", text);
+    agent.addMessage("user", text);
 
     if (!llmRef.getApiKey()) {
-      agent._balloon.addMessage("assistant", "I'll need your Anthropic API key first! Right-click me and choose Settings.");
+      agent.addMessage(
+        "assistant",
+        "I'll need your Anthropic API key first! Right-click me and choose Settings.",
+      );
       return;
     }
 
     agent.play("Thinking");
 
-    const stream = agent._balloon.streamMessage();
+    const stream = agent.streamMessage();
     try {
       let buffer = "";
       let actionResolved = false;
@@ -54,19 +73,16 @@ export default function App() {
       for await (const chunk of llmRef.chat(text)) {
         if (!actionResolved) {
           buffer += chunk;
-          // Check if we have the full action tag yet
           const closingIdx = buffer.indexOf("]");
           if (closingIdx !== -1) {
             actionResolved = true;
             const { action, text: remaining } = parseAction(buffer);
             if (action && agent.hasAnimation(action)) {
-              agent._animator.exitAnimation(); // Exit Thinking early
+              agent.exitAnimation();
               agent.play(action);
             }
             if (remaining) stream.push(remaining);
-          }
-          // If buffer gets too long without a tag, flush it as-is
-          else if (buffer.length > 50) {
+          } else if (buffer.length > 50) {
             actionResolved = true;
             stream.push(buffer);
           }
@@ -75,7 +91,6 @@ export default function App() {
         }
       }
 
-      // If stream ended before we resolved the action, flush buffer
       if (!actionResolved && buffer) {
         const { action, text: remaining } = parseAction(buffer);
         if (action && agent.hasAnimation(action)) {
@@ -90,41 +105,37 @@ export default function App() {
         err instanceof Error && err.message === "no_api_key"
           ? "I'll need your Anthropic API key first! Right-click me and choose Settings."
           : "Hmm, something went wrong. Please check your API key in Settings.";
-      agent._balloon.addMessage("assistant", msg);
+      agent.addMessage("assistant", msg);
     }
   }, []);
 
-  const loadCharacter = useCallback(
-    async (name: CharacterName) => {
-      if (agentRef.current) {
-        agentRef.current.dispose();
-        agentRef.current = null;
-      }
-      llmRef.clearHistory();
-
-      const agent = await initAgent(CHARACTERS[name], name);
-      agentRef.current = agent;
-
-      // Tell LLM which action animations this character supports
-      const available = agent.animations().filter((a) => a in ACTION_ANIMATIONS);
-      llmRef.setAvailableActions(available);
-
-      agent.show();
-      agent._balloon.enableInput(handleChat);
-      agent._balloon.addMessage("assistant", GREETINGS[name]);
-    },
-    [handleChat]
-  );
-
+  // Load character data
   useEffect(() => {
-    const saved = (localStorage.getItem("character") as CharacterName) ?? "Clippy";
-    const name = saved in CHARACTERS ? saved : "Clippy";
-    loadCharacter(name);
+    setAgentData(null);
+    llmRef.clearHistory();
+    let cancelled = false;
+    loadAgentData(CHARACTERS[characterName]).then((data) => {
+      if (!cancelled) setAgentData(data);
+    });
     return () => {
-      agentRef.current?.dispose();
-      agentRef.current = null;
+      cancelled = true;
     };
-  }, [loadCharacter]);
+  }, [characterName]);
+
+  // Called by AgentComponent once Animator + Balloon are fully ready.
+  const handleAgentReady = useCallback(() => {
+    const agent = agentRef.current;
+    if (!agent) return;
+
+    const available = agent
+      .animations()
+      .filter((a) => a in ACTION_ANIMATIONS);
+    llmRef.setAvailableActions(available);
+
+    agent.show();
+    agent.enableInput(handleChat);
+    agent.addMessage("assistant", GREETINGS[characterName]);
+  }, [handleChat, characterName]);
 
   useEffect(() => {
     startClickthroughTracking();
@@ -142,25 +153,24 @@ export default function App() {
 
   const closeMenu = useCallback(() => setMenu(null), []);
 
+  const switchCharacter = useCallback((name: CharacterName) => {
+    localStorage.setItem("character", name);
+    setCharacterName(name);
+  }, []);
+
   const menuItems: MenuItem[] = [
     {
       label: "Switch to Clippy",
-      action: () => {
-        localStorage.setItem("character", "Clippy");
-        loadCharacter("Clippy");
-      },
+      action: () => switchCharacter("Clippy"),
     },
     {
       label: "Switch to Rocky",
-      action: () => {
-        localStorage.setItem("character", "Rocky");
-        loadCharacter("Rocky");
-      },
+      action: () => switchCharacter("Rocky"),
     },
     "separator",
     {
       label: "Chat...",
-      action: () => agentRef.current?._balloon.focusInput(),
+      action: () => agentRef.current?.focusInput(),
     },
     {
       label: "Animate",
@@ -183,16 +193,35 @@ export default function App() {
 
   return (
     <>
+      {agentData && (
+        <AgentComponent
+          ref={agentRef}
+          key={characterName}
+          mapUrl={agentData.mapUrl}
+          data={agentData.data}
+          sounds={agentData.sounds}
+          characterName={characterName}
+          onReady={handleAgentReady}
+        />
+      )}
       {menu && (
-        <ContextMenu x={menu.x} y={menu.y} items={menuItems} onClose={closeMenu} />
+        <ContextMenu
+          x={menu.x}
+          y={menu.y}
+          items={menuItems}
+          onClose={closeMenu}
+        />
       )}
       {settingsOpen && (
         <SettingsPanel
-          targetEl={agentRef.current?._el ?? null}
+          targetEl={agentRef.current?.getElement() ?? null}
           currentKey={llmRef.getApiKey()}
           onSave={(key) => {
             llmRef.setApiKey(key);
-            agentRef.current?._balloon.addMessage("assistant", "Got it! I'm ready to chat.");
+            agentRef.current?.addMessage(
+              "assistant",
+              "Got it! I'm ready to chat.",
+            );
           }}
           onClose={() => setSettingsOpen(false)}
         />
