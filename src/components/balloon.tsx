@@ -36,8 +36,6 @@ interface BalloonProps {
   characterName?: string;
 }
 
-const TIP_SRC =
-  "url(data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAABQAAAAgCAMAAAAlvKiEAAAAGXRFWHRTb2Z0d2FyZQBBZG9iZSBJbWFnZVJlYWR5ccllPAAAAAlQTFRF///MAAAA////52QwgAAAAAN0Uk5T//8A18oNQQAAAGxJREFUeNqs0kEOwCAIRFHn3//QTUU6xMyyxii+jQosrTPkyPEM6IN3FtzIRk1U4dFeKWQiH6pRRowMVKEmvronEynkwj0uZJgR22+YLopPSo9P34wJSamLSU7lSIWLJU7NkNomNlhqxUeAAQC+TQLZyEuJBwAAAABJRU5ErkJggg==) no-repeat";
 
 const WORD_SPEAK_TIME = 200;
 const CLOSE_BALLOON_DELAY = 5000;
@@ -281,18 +279,6 @@ const Balloon = forwardRef<BalloonHandle, BalloonProps>(function Balloon(
     onSubmitRef.current(text);
   }, [inputValue]);
 
-  // Tip for top-left position: tail at bottom-right of balloon pointing down toward character
-  const tipStyle: React.CSSProperties = {
-    width: "10px",
-    height: "16px",
-    backgroundImage: TIP_SRC,
-    position: "absolute",
-    display: inputEnabled ? "none" : undefined,
-    top: "100%",
-    marginTop: "0px",
-    left: "100%",
-    marginLeft: "-50px",
-  };
 
   return createPortal(
     <div
@@ -313,7 +299,21 @@ const Balloon = forwardRef<BalloonHandle, BalloonProps>(function Balloon(
         right: anchor.right,
       }}
     >
-      <div style={tipStyle} />
+      <svg
+        style={{
+          position: "absolute",
+          top: "calc(100% - 1px)",
+          right: "10px",
+          display: "block",
+          overflow: "visible",
+        }}
+        width="20"
+        height="16"
+        viewBox="0 0 20 16"
+      >
+        <polygon points="0,0 14,0 3,16" fill="#ffc" stroke="black" strokeWidth="1" />
+        <line x1="-1" y1="0" x2="15" y2="0" stroke="#ffc" strokeWidth="3" />
+      </svg>
 
       {!inputEnabled && (
         <div

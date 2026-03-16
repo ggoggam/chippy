@@ -280,7 +280,7 @@ const AgentComponent = forwardRef<AgentHandle, AgentProps>(
           }
           animatorRef.current.resume();
           balloonRef.current?.resume();
-          play("Show");
+          play("Show", undefined, () => balloonRef.current?.reposition());
         }
 
         function hide(fast?: boolean, callback?: Function) {
