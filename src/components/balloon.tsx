@@ -8,6 +8,7 @@ import {
   type DragEvent,
 } from "react";
 import { createPortal } from "react-dom";
+import { getCurrentWindow } from "@tauri-apps/api/window";
 
 export interface BalloonHandle {
   speak(complete: () => void, text: string, hold?: boolean): void;
@@ -24,6 +25,9 @@ export interface BalloonHandle {
   enableInput(onSubmit: (text: string, images: string[]) => void): void;
   focusInput(): void;
   addMessage(role: "user" | "assistant", text: string, images?: string[]): void;
+  getMessages(): Message[];
+  setMessages(msgs: Message[]): void;
+  clearMessages(): void;
   streamMessage(): {
     push: (chunk: string) => void;
     done: () => void;
@@ -41,7 +45,7 @@ const WORD_SPEAK_TIME = 200;
 const CLOSE_BALLOON_DELAY = 5000;
 const BALLOON_MARGIN = 15;
 
-interface Message {
+export interface Message {
   id: number;
   role: "user" | "assistant";
   text: string;
@@ -339,6 +343,31 @@ const Balloon = forwardRef<BalloonHandle, BalloonProps>(function Balloon(
         setMinimized(false);
       },
 
+      getMessages() {
+        // Return a snapshot — we access the state ref-style via a closure trick
+        let current: Message[] = [];
+        setMessages((prev) => {
+          current = prev;
+          return prev;
+        });
+        return current;
+      },
+
+      setMessages(msgs: Message[]) {
+        msgIdRef.current = msgs.length;
+        setMessages(
+          msgs.map((m, i) => ({ ...m, id: i })),
+        );
+        hiddenRef.current = false;
+        setVisible(true);
+        setMinimized(false);
+      },
+
+      clearMessages() {
+        msgIdRef.current = 0;
+        setMessages([]);
+      },
+
       streamMessage() {
         const id = msgIdRef.current++;
         setMessages((prev) => [...prev, { id, role: "assistant", text: "" }]);
@@ -427,14 +456,23 @@ const Balloon = forwardRef<BalloonHandle, BalloonProps>(function Balloon(
                 className={`${WIN98_FONT} text-[10px] font-bold bg-[#d4d0c8] ${WIN98_BORDER} w-[16px] h-[15px] px-[3px] py-0 cursor-pointer flex items-center justify-center shrink-0 leading-none`}
                 onMouseDown={(e) => e.preventDefault()}
                 onClick={() => setMinimized((m) => !m)}
-                title="Minimize"
+                title={minimized ? "Restore" : "Minimize"}
               >
-                _
+                {minimized ? (
+                  <svg width="9" height="9" viewBox="0 0 9 9" className="block">
+                    {/* back square */}
+                    <rect x="0" y="2" width="7" height="7" fill="none" stroke="black" strokeWidth="1"/>
+                    {/* front square */}
+                    <rect x="2" y="0" width="7" height="7" fill="#d4d0c8" stroke="black" strokeWidth="1"/>
+                    {/* double top border on front square */}
+                    <line x1="2" y1="1" x2="9" y2="1" stroke="black" strokeWidth="1"/>
+                  </svg>
+                ) : "_"}
               </button>
               <button
                 className={`${WIN98_FONT} text-[10px] font-bold bg-[#d4d0c8] ${WIN98_BORDER} w-[16px] h-[15px] px-[3px] py-0 cursor-pointer flex items-center justify-center shrink-0 leading-none`}
                 onMouseDown={(e) => e.preventDefault()}
-                onClick={() => setVisible(false)}
+                onClick={() => getCurrentWindow().close()}
                 title="Close"
               >
                 ✕

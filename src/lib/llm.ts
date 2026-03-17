@@ -106,6 +106,10 @@ export class LLMClient {
     this.history = [];
   }
 
+  restoreMessage(role: "user" | "assistant", text: string) {
+    this.history.push({ role, content: text });
+  }
+
   async *chat(userText: string, images: string[] = []): AsyncIterable<string> {
     if (!this.client) throw new Error("no_api_key");
 

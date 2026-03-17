@@ -8,7 +8,7 @@ import {
 } from "react";
 import { createPortal } from "react-dom";
 import Animator from "../lib/animator";
-import BalloonComponent, { type BalloonHandle } from "./balloon";
+import BalloonComponent, { type BalloonHandle, type Message } from "./balloon";
 import Queue from "../lib/queue";
 import { lockClickthrough } from "../lib/clickthrough";
 
@@ -42,6 +42,9 @@ export interface AgentHandle {
   enableInput(onSubmit: (text: string, images: string[]) => void): void;
   focusInput(): void;
   addMessage(role: "user" | "assistant", text: string, images?: string[]): void;
+  getMessages(): Message[];
+  setMessages(msgs: Message[]): void;
+  clearMessages(): void;
   streamMessage(): {
     push: (chunk: string) => void;
     done: () => void;
@@ -264,9 +267,17 @@ const AgentComponent = forwardRef<AgentHandle, AgentProps>(
           hiddenRef.current = false;
           const style = getComputedStyle(el);
           if (style.top === "auto" || style.left === "auto") {
-            const [fw, fh] = data.framesize as [number, number];
-            const left = window.innerWidth - fw - 20;
-            const top = window.innerHeight - fh - 20;
+            const saved = localStorage.getItem("agent-position");
+            let left: number, top: number;
+            if (saved) {
+              const pos = JSON.parse(saved);
+              left = pos.left;
+              top = pos.top;
+            } else {
+              const [fw, fh] = data.framesize as [number, number];
+              left = window.innerWidth - fw - 20;
+              top = window.innerHeight - fh - 20;
+            }
             const clamped = clampXY(left, top);
             el.style.top = clamped.y + "px";
             el.style.left = clamped.x + "px";
@@ -485,6 +496,9 @@ const AgentComponent = forwardRef<AgentHandle, AgentProps>(
           focusInput: () => balloonRef.current?.focusInput(),
           addMessage: (role: "user" | "assistant", text: string, images?: string[]) =>
             balloonRef.current?.addMessage(role, text, images),
+          getMessages: () => balloonRef.current?.getMessages() ?? [],
+          setMessages: (msgs: Message[]) => balloonRef.current?.setMessages(msgs),
+          clearMessages: () => balloonRef.current?.clearMessages(),
           streamMessage: () => balloonRef.current!.streamMessage(),
           exitAnimation: () => animatorRef.current?.exitAnimation(),
           getElement: () => elRef.current,
@@ -528,6 +542,10 @@ const AgentComponent = forwardRef<AgentHandle, AgentProps>(
           balloonRef.current?.resume();
           window.removeEventListener("mousemove", onMove);
           window.removeEventListener("mouseup", onUp);
+          localStorage.setItem(
+            "agent-position",
+            JSON.stringify({ top: el.offsetTop, left: el.offsetLeft }),
+          );
         };
 
         window.addEventListener("mousemove", onMove);

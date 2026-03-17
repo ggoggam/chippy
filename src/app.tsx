@@ -7,10 +7,17 @@ import AgentComponent, {
 import { LLMClient, parseAction, ACTION_ANIMATIONS, MODELS, type ModelId } from "./lib/llm";
 import ContextMenu, { type MenuItem } from "./components/context-menu";
 import SettingsPanel from "./components/settings-panel";
+import HistoryPanel from "./components/history-panel";
+import {
+  saveConversation,
+  type Conversation,
+  type SavedMessage,
+} from "./lib/history";
 import {
   startClickthroughTracking,
   stopClickthroughTracking,
 } from "./lib/clickthrough";
+import { getCurrentWindow } from "@tauri-apps/api/window";
 
 type CharacterName = "Clippy" | "Rocky";
 
@@ -39,6 +46,8 @@ export default function App() {
   const agentRef = useRef<AgentHandle>(null);
   const [menu, setMenu] = useState<{ x: number; y: number } | null>(null);
   const [settingsOpen, setSettingsOpen] = useState(false);
+  const [historyOpen, setHistoryOpen] = useState(false);
+  const conversationIdRef = useRef<string | null>(null);
   const [characterName, setCharacterName] = useState<CharacterName>(() => {
     const saved = localStorage.getItem("character") as CharacterName;
     return saved in CHARACTERS ? saved : "Clippy";
@@ -49,6 +58,19 @@ export default function App() {
     data: any;
     sounds: Record<string, string>;
   } | null>(null);
+
+  const autoSave = useCallback(() => {
+    const agent = agentRef.current;
+    if (!agent) return;
+    const msgs = agent.getMessages();
+    if (msgs.length < 2) return;
+    const saved: SavedMessage[] = msgs.map((m) => ({
+      role: m.role,
+      text: m.text,
+    }));
+    const id = saveConversation(saved, conversationIdRef.current ?? undefined);
+    if (id) conversationIdRef.current = id;
+  }, []);
 
   const handleChat = useCallback(async (text: string, images: string[] = []) => {
     const agent = agentRef.current;
@@ -101,6 +123,7 @@ export default function App() {
       }
 
       stream.done();
+      autoSave();
     } catch (err) {
       const msg =
         err instanceof Error && err.message === "no_api_key"
@@ -108,12 +131,48 @@ export default function App() {
           : "Hmm, something went wrong. Please check your API key in Settings.";
       agent.addMessage("assistant", msg);
     }
-  }, []);
+  }, [autoSave]);
+
+  const handleNewChat = useCallback(() => {
+    autoSave();
+    llmRef.clearHistory();
+    conversationIdRef.current = null;
+    agentRef.current?.clearMessages();
+    agentRef.current?.addMessage("assistant", GREETINGS[characterName]);
+  }, [autoSave, characterName]);
+
+  const handleLoadConversation = useCallback(
+    (conv: Conversation) => {
+      autoSave();
+      llmRef.clearHistory();
+      conversationIdRef.current = conv.id;
+
+      // Rebuild LLM history from saved messages
+      for (const msg of conv.messages) {
+        llmRef.restoreMessage(msg.role, msg.text);
+      }
+
+      const agent = agentRef.current;
+      if (agent) {
+        agent.setMessages(
+          conv.messages.map((m, i) => ({
+            id: i,
+            role: m.role,
+            text: m.text,
+          })),
+        );
+      }
+      setHistoryOpen(false);
+    },
+    [autoSave],
+  );
 
   // Load character data
   useEffect(() => {
     setAgentData(null);
+    autoSave();
     llmRef.clearHistory();
+    conversationIdRef.current = null;
     let cancelled = false;
     loadAgentData(CHARACTERS[characterName]).then((data) => {
       if (!cancelled) setAgentData(data);
@@ -184,7 +243,14 @@ export default function App() {
     "separator",
     {
       label: "New Chat",
-      action: () => llmRef.clearHistory(),
+      action: handleNewChat,
+    },
+    {
+      label: "History...",
+      action: () => {
+        autoSave();
+        setHistoryOpen(true);
+      },
     },
     {
       label: "Animate",
@@ -201,7 +267,7 @@ export default function App() {
     },
     {
       label: "Close",
-      action: () => window.close(),
+      action: () => getCurrentWindow().close(),
     },
   ];
 
@@ -224,6 +290,13 @@ export default function App() {
           y={menu.y}
           items={menuItems}
           onClose={closeMenu}
+        />
+      )}
+      {historyOpen && (
+        <HistoryPanel
+          targetEl={agentRef.current?.getElement() ?? null}
+          onLoad={handleLoadConversation}
+          onClose={() => setHistoryOpen(false)}
         />
       )}
       {settingsOpen && (
