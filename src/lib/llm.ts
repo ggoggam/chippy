@@ -73,6 +73,7 @@ export const PROVIDERS: Record<Provider, { label: string; keyPlaceholder: string
   google: { label: "Google", keyPlaceholder: "AIza..." },
 };
 
+// Static fallback models (used when API keys are absent or list fetch fails)
 export const MODELS: ModelDef[] = [
   // Anthropic
   { id: "claude-haiku-4-5", label: "Haiku 4.5", provider: "anthropic" },
@@ -82,7 +83,7 @@ export const MODELS: ModelDef[] = [
   { id: "gpt-4.1-mini", label: "GPT-4.1 Mini", provider: "openai" },
   { id: "gpt-4.1", label: "GPT-4.1", provider: "openai" },
   { id: "o3-mini", label: "o3-mini", provider: "openai" },
-  // Google
+  // Google (no list-models API in this SDK)
   { id: "gemini-2.0-flash", label: "Gemini 2.0 Flash", provider: "google" },
   { id: "gemini-2.5-flash", label: "Gemini 2.5 Flash", provider: "google" },
   { id: "gemini-2.5-pro", label: "Gemini 2.5 Pro", provider: "google" },
@@ -92,9 +93,13 @@ export type ModelId = string;
 
 const DEFAULT_MODEL = "claude-haiku-4-5";
 
+// Dynamic registry updated by listModels(); falls back to static MODELS
+const dynamicRegistry = new Map<string, Provider>(
+  MODELS.map((m) => [m.id, m.provider])
+);
+
 function providerForModel(modelId: string): Provider {
-  const m = MODELS.find((m) => m.id === modelId);
-  return m?.provider ?? "anthropic";
+  return dynamicRegistry.get(modelId) ?? "anthropic";
 }
 
 // ---------------------------------------------------------------------------
@@ -170,6 +175,51 @@ export class LLMClient {
   hasKeyForCurrentModel(): boolean {
     const provider = this.getProvider();
     return !!this.getApiKey(provider);
+  }
+
+  // -- Dynamic model listing --
+
+  async listModels(): Promise<ModelDef[]> {
+    const results: ModelDef[] = [];
+
+    if (this.anthropic) {
+      try {
+        const page = await this.anthropic.models.list({ limit: 100 });
+        for (const m of page.data) {
+          results.push({ id: m.id, label: m.display_name, provider: "anthropic" });
+          dynamicRegistry.set(m.id, "anthropic");
+        }
+      } catch {
+        results.push(...MODELS.filter((m) => m.provider === "anthropic"));
+      }
+    } else {
+      results.push(...MODELS.filter((m) => m.provider === "anthropic"));
+    }
+
+    if (this.openai) {
+      try {
+        const page = await this.openai.models.list();
+        const chatModels = page.data
+          .filter((m) => /^(gpt-4|gpt-3\.5|o1|o3|o4|chatgpt-4o)/.test(m.id))
+          .sort((a, b) => b.created - a.created);
+        for (const m of chatModels) {
+          results.push({ id: m.id, label: m.id, provider: "openai" });
+          dynamicRegistry.set(m.id, "openai");
+        }
+      } catch {
+        results.push(...MODELS.filter((m) => m.provider === "openai"));
+      }
+    } else {
+      results.push(...MODELS.filter((m) => m.provider === "openai"));
+    }
+
+    // Google's SDK has no list-models endpoint — use static list
+    results.push(...MODELS.filter((m) => m.provider === "google"));
+    for (const m of MODELS.filter((m) => m.provider === "google")) {
+      dynamicRegistry.set(m.id, "google");
+    }
+
+    return results;
   }
 
   // -- Actions & history --

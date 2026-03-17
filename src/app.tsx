@@ -4,7 +4,7 @@ import AgentComponent, {
   type AgentLoaders,
   type AgentHandle,
 } from "./components/agent";
-import { LLMClient, parseAction, ACTION_ANIMATIONS, MODELS, PROVIDERS, type ModelId, type Provider } from "./lib/llm";
+import { LLMClient, parseAction, ACTION_ANIMATIONS, MODELS, PROVIDERS, type ModelDef, type ModelId, type Provider } from "./lib/llm";
 import ContextMenu, { type MenuItem } from "./components/context-menu";
 import SettingsPanel from "./components/settings-panel";
 import HistoryPanel from "./components/history-panel";
@@ -16,6 +16,7 @@ import {
 import {
   startClickthroughTracking,
   stopClickthroughTracking,
+  lockClickthrough,
 } from "./lib/clickthrough";
 import { getCurrentWindow } from "@tauri-apps/api/window";
 
@@ -53,6 +54,7 @@ export default function App() {
     return saved in CHARACTERS ? saved : "Clippy";
   });
   const [model, setModel] = useState<ModelId>(() => llmRef.getModel());
+  const [models, setModels] = useState<ModelDef[]>(MODELS);
   const [agentData, setAgentData] = useState<{
     mapUrl: string;
     data: any;
@@ -208,12 +210,16 @@ export default function App() {
     const onContext = (e: MouseEvent) => {
       e.preventDefault();
       setMenu({ x: e.clientX, y: e.clientY });
+      lockClickthrough(true);
     };
     document.addEventListener("contextmenu", onContext);
     return () => document.removeEventListener("contextmenu", onContext);
   }, []);
 
-  const closeMenu = useCallback(() => setMenu(null), []);
+  const closeMenu = useCallback(() => {
+    setMenu(null);
+    lockClickthrough(false);
+  }, []);
 
   const switchCharacter = useCallback((name: CharacterName) => {
     localStorage.setItem("character", name);
@@ -224,6 +230,14 @@ export default function App() {
     llmRef.setModel(id);
     setModel(id);
   }, []);
+
+  const refreshModels = useCallback(() => {
+    llmRef.listModels().then(setModels).catch(() => {});
+  }, []);
+
+  useEffect(() => {
+    refreshModels();
+  }, [refreshModels]);
 
   const menuItems: MenuItem[] = [
     {
@@ -237,14 +251,14 @@ export default function App() {
       checked: characterName === "Rocky",
     },
     "separator",
-    ...(["anthropic", "openai", "google"] as Provider[]).flatMap((p) => [
-      { label: PROVIDERS[p].label, disabled: true as const },
-      ...MODELS.filter((m) => m.provider === p).map((m) => ({
-        label: `  ${m.label}`,
+    ...(["anthropic", "openai", "google"] as Provider[]).map((p) => ({
+      label: PROVIDERS[p].label,
+      submenu: models.filter((m) => m.provider === p).map((m) => ({
+        label: m.label,
         action: () => switchModel(m.id),
         checked: model === m.id,
       })),
-    ]),
+    })),
     "separator",
     {
       label: "New Chat",
@@ -310,6 +324,7 @@ export default function App() {
           getKey={(p) => llmRef.getApiKey(p)}
           onSave={(provider, key) => {
             llmRef.setApiKey(provider, key);
+            refreshModels();
             agentRef.current?.addMessage(
               "assistant",
               "Got it! I'm ready to chat.",

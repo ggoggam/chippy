@@ -8,7 +8,6 @@ import {
   type DragEvent,
 } from "react";
 import { createPortal } from "react-dom";
-import { getCurrentWindow } from "@tauri-apps/api/window";
 
 export interface BalloonHandle {
   speak(complete: () => void, text: string, hold?: boolean): void;
@@ -355,9 +354,7 @@ const Balloon = forwardRef<BalloonHandle, BalloonProps>(function Balloon(
 
       setMessages(msgs: Message[]) {
         msgIdRef.current = msgs.length;
-        setMessages(
-          msgs.map((m, i) => ({ ...m, id: i })),
-        );
+        setMessages(msgs.map((m, i) => ({ ...m, id: i })));
         hiddenRef.current = false;
         setVisible(true);
         setMinimized(false);
@@ -461,22 +458,47 @@ const Balloon = forwardRef<BalloonHandle, BalloonProps>(function Balloon(
                 {minimized ? (
                   <svg width="9" height="9" viewBox="0 0 9 9" className="block">
                     {/* back square */}
-                    <rect x="0" y="2" width="7" height="7" fill="none" stroke="black" strokeWidth="1"/>
+                    <rect
+                      x="0"
+                      y="2"
+                      width="7"
+                      height="7"
+                      fill="none"
+                      stroke="black"
+                      strokeWidth="1"
+                    />
                     {/* front square */}
-                    <rect x="2" y="0" width="7" height="7" fill="#d4d0c8" stroke="black" strokeWidth="1"/>
+                    <rect
+                      x="2"
+                      y="0"
+                      width="7"
+                      height="7"
+                      fill="#d4d0c8"
+                      stroke="black"
+                      strokeWidth="1"
+                    />
                     {/* double top border on front square */}
-                    <line x1="2" y1="1" x2="9" y2="1" stroke="black" strokeWidth="1"/>
+                    <line
+                      x1="2"
+                      y1="1"
+                      x2="9"
+                      y2="1"
+                      stroke="black"
+                      strokeWidth="1"
+                    />
                   </svg>
-                ) : "_"}
+                ) : (
+                  "_"
+                )}
               </button>
-              <button
+              {/*<button
                 className={`${WIN98_FONT} text-[10px] font-bold bg-[#d4d0c8] ${WIN98_BORDER} w-[16px] h-[15px] px-[3px] py-0 cursor-pointer flex items-center justify-center shrink-0 leading-none`}
                 onMouseDown={(e) => e.preventDefault()}
                 onClick={() => getCurrentWindow().close()}
                 title="Close"
               >
                 ✕
-              </button>
+              </button>*/}
             </div>
           </div>
 
