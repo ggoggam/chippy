@@ -2,6 +2,7 @@ import { useEffect, useRef } from "react";
 
 export type MenuItem =
   | { label: string; action: () => void; checked?: boolean }
+  | { label: string; disabled: true }
   | "separator";
 
 interface ContextMenuProps {
@@ -55,17 +56,27 @@ export default function ContextMenu({ x, y, items, onClose }: ContextMenuProps) 
             borderBottom: "1px solid #fff",
           }} />
         ) : (
+          "disabled" in item && item.disabled ? (
+          <div
+            key={i}
+            className="py-[3px] pr-[16px] pl-[2px] cursor-default whitespace-nowrap flex items-center gap-0.5 text-[#808080]"
+          >
+            <span className="inline-block w-4" />
+            {item.label}
+          </div>
+          ) : (
           <div
             key={i}
             className="py-[3px] pr-[16px] pl-[2px] cursor-default whitespace-nowrap flex items-center gap-0.5 hover:bg-[#000080] hover:text-white"
             onClick={() => {
               onClose();
-              item.action();
+              if ("action" in item) item.action();
             }}
           >
-            <span className="inline-block w-4 text-center text-[10px]">{item.checked ? "✓" : ""}</span>
+            <span className="inline-block w-4 text-center text-[10px]">{"checked" in item && item.checked ? "✓" : ""}</span>
             {item.label}
           </div>
+          )
         )
       )}
     </div>

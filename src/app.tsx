@@ -4,7 +4,7 @@ import AgentComponent, {
   type AgentLoaders,
   type AgentHandle,
 } from "./components/agent";
-import { LLMClient, parseAction, ACTION_ANIMATIONS, MODELS, type ModelId } from "./lib/llm";
+import { LLMClient, parseAction, ACTION_ANIMATIONS, MODELS, PROVIDERS, type ModelId, type Provider } from "./lib/llm";
 import ContextMenu, { type MenuItem } from "./components/context-menu";
 import SettingsPanel from "./components/settings-panel";
 import HistoryPanel from "./components/history-panel";
@@ -78,10 +78,11 @@ export default function App() {
 
     agent.addMessage("user", text, images);
 
-    if (!llmRef.getApiKey()) {
+    if (!llmRef.hasKeyForCurrentModel()) {
+      const provider = PROVIDERS[llmRef.getProvider()].label;
       agent.addMessage(
         "assistant",
-        "I'll need your Anthropic API key first! Right-click me and choose Settings.",
+        `I'll need your ${provider} API key first! Right-click me and choose Settings.`,
       );
       return;
     }
@@ -125,9 +126,10 @@ export default function App() {
       stream.done();
       autoSave();
     } catch (err) {
+      const provider = PROVIDERS[llmRef.getProvider()].label;
       const msg =
         err instanceof Error && err.message === "no_api_key"
-          ? "I'll need your Anthropic API key first! Right-click me and choose Settings."
+          ? `I'll need your ${provider} API key first! Right-click me and choose Settings.`
           : "Hmm, something went wrong. Please check your API key in Settings.";
       agent.addMessage("assistant", msg);
     }
@@ -235,11 +237,14 @@ export default function App() {
       checked: characterName === "Rocky",
     },
     "separator",
-    ...MODELS.map((m) => ({
-      label: m.label,
-      action: () => switchModel(m.id),
-      checked: model === m.id,
-    })),
+    ...(["anthropic", "openai", "google"] as Provider[]).flatMap((p) => [
+      { label: PROVIDERS[p].label, disabled: true as const },
+      ...MODELS.filter((m) => m.provider === p).map((m) => ({
+        label: `  ${m.label}`,
+        action: () => switchModel(m.id),
+        checked: model === m.id,
+      })),
+    ]),
     "separator",
     {
       label: "New Chat",
@@ -302,9 +307,9 @@ export default function App() {
       {settingsOpen && (
         <SettingsPanel
           targetEl={agentRef.current?.getElement() ?? null}
-          currentKey={llmRef.getApiKey()}
-          onSave={(key) => {
-            llmRef.setApiKey(key);
+          getKey={(p) => llmRef.getApiKey(p)}
+          onSave={(provider, key) => {
+            llmRef.setApiKey(provider, key);
             agentRef.current?.addMessage(
               "assistant",
               "Got it! I'm ready to chat.",

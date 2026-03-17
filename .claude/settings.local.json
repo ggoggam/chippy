@@ -34,7 +34,8 @@
       "Bash(bun run build)",
       "Bash(/Users/ggoggam/Projects/clippy/src-tauri/src/lib.rs:*)",
       "Bash(node -e \" const clippy = require\\(''./src/assets/clippy/agent.ts''\\) || {}; \")",
-      "Bash(bun add -d tailwindcss @tailwindcss/vite)"
+      "Bash(bun add -d tailwindcss @tailwindcss/vite)",
+      "Bash(bun add:*)"
     ]
   }
 }

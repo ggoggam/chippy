@@ -1,9 +1,10 @@
 import { useState, useEffect, useRef } from "react";
+import { PROVIDERS, type Provider } from "../lib/llm";
 
 interface SettingsPanelProps {
   targetEl: HTMLElement | null;
-  currentKey: string | null;
-  onSave: (key: string) => void;
+  getKey: (provider: Provider) => string | null;
+  onSave: (provider: Provider, key: string) => void;
   onClose: () => void;
 }
 
@@ -11,16 +12,23 @@ const WIN98_FONT = "font-[Tahoma,Microsoft_Sans_Serif,sans-serif] text-[11px]";
 const WIN98_BORDER = "border-2 border-solid border-t-white border-l-white border-b-[#808080] border-r-[#808080]";
 const WIN98_BORDER_INSET = "border-2 border-solid border-t-[#808080] border-l-[#808080] border-b-white border-r-white";
 
-export default function SettingsPanel({ targetEl, currentKey, onSave, onClose }: SettingsPanelProps) {
-  const [value, setValue] = useState(currentKey ?? "");
+const PROVIDER_KEYS: Provider[] = ["anthropic", "openai", "google"];
+
+export default function SettingsPanel({ targetEl, getKey, onSave, onClose }: SettingsPanelProps) {
+  const [values, setValues] = useState<Record<Provider, string>>(() => ({
+    anthropic: getKey("anthropic") ?? "",
+    openai: getKey("openai") ?? "",
+    google: getKey("google") ?? "",
+  }));
   const elRef = useRef<HTMLDivElement>(null);
-  const inputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
-    setValue(currentKey ?? "");
-    inputRef.current?.focus();
-    inputRef.current?.select();
-  }, [currentKey]);
+    setValues({
+      anthropic: getKey("anthropic") ?? "",
+      openai: getKey("openai") ?? "",
+      google: getKey("google") ?? "",
+    });
+  }, [getKey]);
 
   useEffect(() => {
     reposition();
@@ -34,8 +42,8 @@ export default function SettingsPanel({ targetEl, currentKey, onSave, onClose }:
   function reposition() {
     if (!targetEl || !elRef.current) return;
     const o = targetEl.getBoundingClientRect();
-    const elW = elRef.current.offsetWidth || 254;
-    const elH = elRef.current.offsetHeight || 88;
+    const elW = elRef.current.offsetWidth || 280;
+    const elH = elRef.current.offsetHeight || 200;
     const margin = 12;
     let left = o.left + targetEl.offsetWidth - elW;
     let top = o.top - elH - margin;
@@ -46,10 +54,10 @@ export default function SettingsPanel({ targetEl, currentKey, onSave, onClose }:
   }
 
   function handleSave() {
-    const key = value.trim();
-    if (!key) return;
-    setValue("");
-    onSave(key);
+    for (const p of PROVIDER_KEYS) {
+      const key = values[p].trim();
+      if (key) onSave(p, key);
+    }
     onClose();
   }
 
@@ -57,21 +65,24 @@ export default function SettingsPanel({ targetEl, currentKey, onSave, onClose }:
     <div
       ref={elRef}
       data-interactive
-      className={`fixed z-[10002] flex flex-col gap-1.5 bg-[#d4d0c8] ${WIN98_BORDER} p-2 shadow-[1px_1px_0_#000000]`}
+      className={`fixed z-[10002] flex flex-col gap-2 bg-[#d4d0c8] ${WIN98_BORDER} p-2 shadow-[1px_1px_0_#000000]`}
     >
-      <div className={WIN98_FONT}>Anthropic API Key:</div>
-      <input
-        ref={inputRef}
-        type="password"
-        placeholder="sk-ant-..."
-        value={value}
-        onChange={(e) => setValue(e.target.value)}
-        onKeyDown={(e) => {
-          if (e.key === "Enter") handleSave();
-          if (e.key === "Escape") onClose();
-        }}
-        className={`w-[220px] ${WIN98_FONT} ${WIN98_BORDER_INSET} bg-white py-[2px] px-1 outline-none`}
-      />
+      {PROVIDER_KEYS.map((p) => (
+        <div key={p} className="flex flex-col gap-0.5">
+          <div className={WIN98_FONT}>{PROVIDERS[p].label} API Key:</div>
+          <input
+            type="password"
+            placeholder={PROVIDERS[p].keyPlaceholder}
+            value={values[p]}
+            onChange={(e) => setValues((v) => ({ ...v, [p]: e.target.value }))}
+            onKeyDown={(e) => {
+              if (e.key === "Enter") handleSave();
+              if (e.key === "Escape") onClose();
+            }}
+            className={`w-[240px] ${WIN98_FONT} ${WIN98_BORDER_INSET} bg-white py-[2px] px-1 outline-none`}
+          />
+        </div>
+      ))}
       <div className="flex gap-1">
         <button className={`${WIN98_FONT} bg-[#d4d0c8] ${WIN98_BORDER} py-[2px] px-2.5 cursor-pointer`} onClick={handleSave}>Save</button>
         <button className={`${WIN98_FONT} bg-[#d4d0c8] ${WIN98_BORDER} py-[2px] px-2.5 cursor-pointer`} onClick={onClose}>Cancel</button>
