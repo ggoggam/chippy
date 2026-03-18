@@ -40,7 +40,9 @@ jobs:
             ~/.cache/pre-commit
             ~/.cargo/registry
             ~/.cargo/git
-            target
+            ~/.bun/install/cache
+            node_modules
+            src-tauri/target
           key: pre-commit-${{ runner.os }}-${{ hashFiles('.pre-commit-config.yaml', 'Cargo.lock') }}
           restore-keys: |
             pre-commit-${{ runner.os }}-

@@ -30,7 +30,7 @@ repos:
 
       - id: frontend-typecheck
         name: frontend typecheck
-        entry: bun run typecheck
+        entry: mise run fe-typecheck
         language: system
         pass_filenames: false
         types_or: [ts, tsx]

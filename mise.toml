@@ -37,8 +37,10 @@ run = "bun run tauri build"
 
 [tasks.fe-lint]
 description = "Lint frontend code"
+depends = ["fe-install"]
 run = "bun run lint"
 
 [tasks.fe-typecheck]
 description = "Type-check frontend code"
+depends = ["fe-install"]
 run = "bun run typecheck"
