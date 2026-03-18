@@ -37,7 +37,23 @@
       "Bash(bun add -d tailwindcss @tailwindcss/vite)",
       "Bash(bun add:*)",
       "WebFetch(domain:openmoji.org)",
-      "WebFetch(domain:raw.githubusercontent.com)"
+      "WebFetch(domain:raw.githubusercontent.com)",
+      "Bash(sips -g pixelWidth -g pixelHeight /Users/ggoggam/Projects/clippy/icon.png)",
+      "Bash(SRC=icon.png ICONS=src-tauri/icons)",
+      "Bash(sips -z 32 32 $SRC --out $ICONS/32x32.png)",
+      "Bash(sips -z 128 128 $SRC --out $ICONS/128x128.png)",
+      "Bash(sips -z 256 256 $SRC --out $ICONS/128x128@2x.png)",
+      "Bash(sips -z 512 512 $SRC --out $ICONS/icon.png)",
+      "Bash(sips -z 107 107 $SRC --out $ICONS/Square107x107Logo.png)",
+      "Bash(sips -z 142 142 $SRC --out $ICONS/Square142x142Logo.png)",
+      "Bash(sips -z 150 150 $SRC --out $ICONS/Square150x150Logo.png)",
+      "Bash(sips -z 284 284 $SRC --out $ICONS/Square284x284Logo.png)",
+      "Bash(sips -z 30 30 $SRC --out $ICONS/Square30x30Logo.png)",
+      "Bash(sips -z 310 310 $SRC --out $ICONS/Square310x310Logo.png)",
+      "Bash(sips -z 44 44 $SRC --out $ICONS/Square44x44Logo.png)",
+      "Bash(sips -z 71 71 $SRC --out $ICONS/Square71x71Logo.png)",
+      "Bash(sips -z 89 89 $SRC --out $ICONS/Square89x89Logo.png)",
+      "Bash(sips -z 50 50 $SRC --out $ICONS/StoreLogo.png)"
     ]
   }
 }
