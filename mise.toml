@@ -1,5 +1,6 @@
 [tools]
 bun = "latest"
+prek = "latest"
 rust = "latest"
 
 [tasks.preview]
@@ -7,3 +8,37 @@ run = "bun run dev"
 
 [tasks.dev]
 run = "bun run tauri dev"
+
+[tasks.lint]
+description = "Run clippy on all crates"
+run = "cargo clippy --manifest-path src-tauri/Cargo.toml -- -D warnings"
+
+[tasks.fmt]
+description = "Format all Rust code"
+run = "cargo fmt --all --manifest-path src-tauri/Cargo.toml"
+
+[tasks.fmt-check]
+description = "Check Rust formatting"
+run = "cargo fmt --all --manifest-path src-tauri/Cargo.toml --check"
+
+[tasks.check]
+description = "Run fmt check, clippy, and tests"
+depends = ["fmt-check", "lint", "test"]
+
+[tasks.fe-install]
+description = "Install frontend dependencies"
+run = "bun install"
+
+[tasks.fe-build]
+description = "Build frontend for production"
+depends = ["fe-install"]
+sources = ["src/*"]
+run = "bun run tauri build"
+
+[tasks.fe-lint]
+description = "Lint frontend code"
+run = "bun run lint"
+
+[tasks.fe-typecheck]
+description = "Type-check frontend code"
+run = "bun run typecheck"

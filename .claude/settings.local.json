@@ -53,7 +53,8 @@
       "Bash(sips -z 44 44 $SRC --out $ICONS/Square44x44Logo.png)",
       "Bash(sips -z 71 71 $SRC --out $ICONS/Square71x71Logo.png)",
       "Bash(sips -z 89 89 $SRC --out $ICONS/Square89x89Logo.png)",
-      "Bash(sips -z 50 50 $SRC --out $ICONS/StoreLogo.png)"
+      "Bash(sips -z 50 50 $SRC --out $ICONS/StoreLogo.png)",
+      "Bash(bun run:*)"
     ]
   }
 }

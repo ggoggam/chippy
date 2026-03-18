@@ -340,9 +340,10 @@ export class LLMClient {
     });
 
     // Build Gemini history (all but last message)
-    const geminiHistory: { role: "user" | "model"; parts: any[] }[] = [];
+    type GeminiPart = { text: string } | { inlineData: { mimeType: string; data: string } };
+    const geminiHistory: { role: "user" | "model"; parts: GeminiPart[] }[] = [];
     for (const m of this.history.slice(0, -1)) {
-      const parts: any[] = [];
+      const parts: GeminiPart[] = [];
       if (m.role === "user" && m.images?.length) {
         for (const dataUrl of m.images) {
           const [meta, data] = dataUrl.split(",");
@@ -359,7 +360,7 @@ export class LLMClient {
 
     // Last message is always user
     const last = this.history[this.history.length - 1];
-    const lastParts: any[] = [];
+    const lastParts: GeminiPart[] = [];
     if (last.images?.length) {
       for (const dataUrl of last.images) {
         const [meta, data] = dataUrl.split(",");

@@ -1,15 +1,17 @@
+export type QueueCallback = (next: () => void) => void;
+
 export default class Queue {
-  _queue: Function[];
-  _onEmptyCallback: Function;
+  _queue: QueueCallback[];
+  _onEmptyCallback: () => void;
   _active: boolean;
 
-  constructor(onEmptyCallback: Function) {
+  constructor(onEmptyCallback: () => void) {
     this._queue = [];
     this._onEmptyCallback = onEmptyCallback;
     this._active = false;
   }
 
-  queue(func: Function) {
+  queue(func: QueueCallback) {
     this._queue.push(func);
     if (this._queue.length === 1 && !this._active) {
       this._progressQueue();
@@ -21,7 +23,7 @@ export default class Queue {
       this._onEmptyCallback();
       return;
     }
-    let f = this._queue.shift()!;
+    const f = this._queue.shift()!;
     this._active = true;
     f(this.next.bind(this));
   }

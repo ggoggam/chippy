@@ -30,15 +30,6 @@ export default function SettingsPanel({ targetEl, getKey, onSave, onClose }: Set
     });
   }, [getKey]);
 
-  useEffect(() => {
-    reposition();
-    const onMouseDown = (e: MouseEvent) => {
-      if (elRef.current && !elRef.current.contains(e.target as Node)) onClose();
-    };
-    document.addEventListener("mousedown", onMouseDown);
-    return () => document.removeEventListener("mousedown", onMouseDown);
-  }, [onClose]);
-
   function reposition() {
     if (!targetEl || !elRef.current) return;
     const o = targetEl.getBoundingClientRect();
@@ -52,6 +43,16 @@ export default function SettingsPanel({ targetEl, getKey, onSave, onClose }: Set
     elRef.current.style.left = left + "px";
     elRef.current.style.top = top + "px";
   }
+
+  useEffect(() => {
+    reposition();
+    const onMouseDown = (e: MouseEvent) => {
+      if (elRef.current && !elRef.current.contains(e.target as Node)) onClose();
+    };
+    document.addEventListener("mousedown", onMouseDown);
+    return () => document.removeEventListener("mousedown", onMouseDown);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [onClose]);
 
   function handleSave() {
     for (const p of PROVIDER_KEYS) {

@@ -58,6 +58,10 @@ jobs:
         uses: tauri-apps/tauri-action@v0
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          # Ad-hoc signing for macOS — no Apple developer account required.
+          # The resulting DMG is unsigned/unnotarized; users will need to allow
+          # it in System Settings > Privacy & Security on first launch.
+          APPLE_SIGNING_IDENTITY: ${{ matrix.platform == 'macos-latest' && '-' || '' }}
         with:
           tagName: ${{ github.ref_name }}
           releaseName: "Clippy ${{ github.ref_name }}"

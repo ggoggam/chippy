@@ -7,21 +7,21 @@ import {
   useLayoutEffect,
 } from "react";
 import { createPortal } from "react-dom";
-import Animator from "../lib/animator";
+import Animator, { type AnimatorData, type AnimatorCallback } from "../lib/animator";
 import BalloonComponent, { type BalloonHandle, type Message } from "./balloon";
-import Queue from "../lib/queue";
+import Queue, { type QueueCallback } from "../lib/queue";
 import { lockClickthrough } from "../lib/clickthrough";
 
 export interface AgentLoaders {
-  agent: () => Promise<{ default: any }>;
-  sound: () => Promise<{ default: any }>;
+  agent: () => Promise<{ default: AnimatorData }>;
+  sound: () => Promise<{ default: Record<string, string> }>;
   map: () => Promise<{ default: string }>;
 }
 
 export interface AgentHandle {
   show(fast?: boolean): void;
-  hide(fast?: boolean, callback?: Function): void;
-  play(animation: string, timeout?: number, cb?: Function): boolean;
+  hide(fast?: boolean, callback?: () => void): void;
+  play(animation: string, timeout?: number, cb?: () => void): boolean;
   speak(text: string, options?: { hold?: boolean; tts?: boolean }): void;
   speakStream(
     source: AsyncIterable<string>,
@@ -56,7 +56,7 @@ export interface AgentHandle {
 
 interface AgentProps {
   mapUrl: string;
-  data: any;
+  data: AnimatorData;
   sounds: Record<string, string>;
   characterName?: string;
   onReady?: () => void;
@@ -85,13 +85,13 @@ function animateElement(
   element: HTMLElement,
   props: Record<string, number>,
   duration: number,
-  callback?: Function,
+  callback?: () => void,
 ) {
   const start = performance.now();
   const startProps: Record<string, number> = {};
   for (const prop in props) {
     startProps[prop] =
-      parseFloat((getComputedStyle(element) as any)[prop]) || 0;
+      parseFloat((getComputedStyle(element) as CSSStyleDeclaration & Record<string, string>)[prop]) || 0;
   }
   const swing = (p: number) => 0.5 - Math.cos(p * Math.PI) / 2;
   const step = (currentTime: number) => {
@@ -101,7 +101,7 @@ function animateElement(
     for (const prop in props) {
       const sv = startProps[prop];
       const ev = props[prop];
-      (element.style as any)[prop] = sv + (ev - sv) * eased + "px";
+      (element.style as CSSStyleDeclaration & Record<string, string>)[prop] = sv + (ev - sv) * eased + "px";
     }
     if (progress < 1) requestAnimationFrame(step);
     else if (callback) callback();
@@ -120,7 +120,7 @@ const AgentComponent = forwardRef<AgentHandle, AgentProps>(
     const queueRef = useRef<Queue | null>(null);
     const hiddenRef = useRef(true);
     const idlePromiseRef = useRef<Promise<void> | null>(null);
-    const idleResolveRef = useRef<Function | null>(null);
+    const idleResolveRef = useRef<(() => void) | null>(null);
     const ttsRef = useRef<
       { rate: number; pitch: number; voice: string } | undefined
     >(data.tts);
@@ -139,7 +139,7 @@ const AgentComponent = forwardRef<AgentHandle, AgentProps>(
       return idles[Math.floor(Math.random() * idles.length)];
     }
 
-    function onIdleComplete(_name: string, state: number) {
+    function onIdleComplete(_name: string | undefined, state: number) {
       if (state === Animator.States.EXITED) {
         if (idleResolveRef.current) idleResolveRef.current();
         idlePromiseRef.current = null;
@@ -156,7 +156,7 @@ const AgentComponent = forwardRef<AgentHandle, AgentProps>(
       animatorRef.current!.showAnimation(idleAnim, onIdleComplete);
     }
 
-    function playInternal(animation: string, callback: Function) {
+    function playInternal(animation: string, callback: AnimatorCallback) {
       if (isIdleAnimation() && idlePromiseRef.current) {
         idlePromiseRef.current.then(() =>
           playInternal(animation, callback),
@@ -166,7 +166,7 @@ const AgentComponent = forwardRef<AgentHandle, AgentProps>(
       animatorRef.current!.showAnimation(animation, callback);
     }
 
-    function addToQueue(func: Function) {
+    function addToQueue(func: QueueCallback) {
       queueRef.current?.queue(func);
     }
 
@@ -294,7 +294,7 @@ const AgentComponent = forwardRef<AgentHandle, AgentProps>(
           play("Show", undefined, () => balloonRef.current?.reposition());
         }
 
-        function hide(fast?: boolean, callback?: Function) {
+        function hide(fast?: boolean, callback?: () => void) {
           if (!el) return;
           hiddenRef.current = true;
           stop();
@@ -304,7 +304,7 @@ const AgentComponent = forwardRef<AgentHandle, AgentProps>(
             if (callback) callback();
             return;
           }
-          playInternal("Hide", function (_name: string, state: number) {
+          playInternal("Hide", function (_name: string | undefined, state: number) {
             if (state === Animator.States.EXITED) {
               el.style.display = "none";
               if (callback) callback();
@@ -315,13 +315,13 @@ const AgentComponent = forwardRef<AgentHandle, AgentProps>(
         function play(
           animation: string,
           timeout?: number,
-          cb?: Function,
+          cb?: () => void,
         ): boolean {
           if (!animatorRef.current?.hasAnimation(animation)) return false;
           if (timeout === undefined) timeout = 5000;
-          addToQueue(function (complete: Function) {
+          addToQueue(function (complete: () => void) {
             let completed = false;
-            const callback = (_name: string, state: number) => {
+            const callback = (_name: string | undefined, state: number) => {
               if (state === Animator.States.EXITED) {
                 completed = true;
                 if (cb) cb();
@@ -343,9 +343,9 @@ const AgentComponent = forwardRef<AgentHandle, AgentProps>(
           text: string,
           options?: { hold?: boolean; tts?: boolean },
         ) {
-          addToQueue(function (complete: Function) {
+          addToQueue(function (complete: () => void) {
             balloonRef.current?.speak(
-              complete as () => void,
+              complete,
               text,
               options?.hold,
             );
@@ -376,7 +376,7 @@ const AgentComponent = forwardRef<AgentHandle, AgentProps>(
           const dir = getDirection(x, y);
           const anim = "Move" + dir;
           if (duration === undefined) duration = 1000;
-          addToQueue(function (complete: Function) {
+          addToQueue(function (complete: () => void) {
             const clamped = clampXY(x, y);
             const cx = clamped.x;
             const cy = clamped.y;
@@ -396,7 +396,7 @@ const AgentComponent = forwardRef<AgentHandle, AgentProps>(
               );
               return;
             }
-            const callback = (_name: string, state: number) => {
+            const callback = (_name: string | undefined, state: number) => {
               if (state === Animator.States.EXITED) complete();
               if (state === Animator.States.WAITING) {
                 animateElement(
@@ -425,7 +425,7 @@ const AgentComponent = forwardRef<AgentHandle, AgentProps>(
 
         function delay(time?: number) {
           time = time || 250;
-          addToQueue(function (complete: Function) {
+          addToQueue(function (complete: () => void) {
             onQueueEmpty();
             window.setTimeout(complete, time);
           });
@@ -454,7 +454,7 @@ const AgentComponent = forwardRef<AgentHandle, AgentProps>(
 
         function animate(): boolean {
           const anims = animations();
-          let anim = anims[Math.floor(Math.random() * anims.length)];
+          const anim = anims[Math.floor(Math.random() * anims.length)];
           if (anim.indexOf("Idle") === 0) return animate();
           return play(anim);
         }
@@ -554,9 +554,9 @@ const AgentComponent = forwardRef<AgentHandle, AgentProps>(
 
       const onDblClick = () => {
         if (animator.hasAnimation("ClickedOn")) {
-          addToQueue(function (complete: Function) {
+          addToQueue(function (complete: () => void) {
             let completed = false;
-            const cb = (_name: string, state: number) => {
+            const cb: AnimatorCallback = (_name, state) => {
               if (state === Animator.States.EXITED) {
                 completed = true;
                 complete();
@@ -572,9 +572,9 @@ const AgentComponent = forwardRef<AgentHandle, AgentProps>(
           let anim = anims[Math.floor(Math.random() * anims.length)];
           if (anim.indexOf("Idle") === 0)
             anim = anims[Math.floor(Math.random() * anims.length)];
-          addToQueue(function (complete: Function) {
+          addToQueue(function (complete: () => void) {
             let completed = false;
-            const cb = (_name: string, state: number) => {
+            const cb: AnimatorCallback = (_name, state) => {
               if (state === Animator.States.EXITED) {
                 completed = true;
                 complete();

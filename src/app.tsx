@@ -57,7 +57,7 @@ export default function App() {
   const [models, setModels] = useState<ModelDef[]>(MODELS);
   const [agentData, setAgentData] = useState<{
     mapUrl: string;
-    data: any;
+    data: import("./lib/animator").AnimatorData;
     sounds: Record<string, string>;
   } | null>(null);
 
