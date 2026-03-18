@@ -4,7 +4,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Project Overview
 
-Clippy is a Tauri v2 desktop app — a modern reimagining of the Microsoft Office Assistant (Clippy, Rocky, etc.) from the late 1990s/early 2000s. The UI mimics Windows 95/98 aesthetics. Characters are animated via sprite sheets and can speak using the Web Speech API, with LLM-powered responses via REST API (Claude or ChatGPT) planned/in progress.
+Chippy is a Tauri v2 desktop app — a modern reimagining of the Microsoft Office Assistant (Clippy, Rocky, etc.) from the late 1990s/early 2000s. The UI mimics Windows 95/98 aesthetics. Characters are animated via sprite sheets and can speak using the Web Speech API, with LLM-powered responses via REST API (Claude or ChatGPT) planned/in progress.
 
 ## Commands
 

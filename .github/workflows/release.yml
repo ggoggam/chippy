@@ -64,7 +64,7 @@ jobs:
           APPLE_SIGNING_IDENTITY: ${{ matrix.platform == 'macos-latest' && '-' || '' }}
         with:
           tagName: ${{ github.ref_name }}
-          releaseName: "Clippy ${{ github.ref_name }}"
+          releaseName: "Chippy ${{ github.ref_name }}"
           releaseBody: "See the assets below to download this version."
           releaseDraft: true
           prerelease: false

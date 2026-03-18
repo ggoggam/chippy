@@ -1,8 +1,8 @@
 {
   "$schema": "https://schema.tauri.app/config/2",
-  "productName": "clippy",
+  "productName": "Chippy",
   "version": "0.1.0",
-  "identifier": "com.clippy.app",
+  "identifier": "com.chippy.app",
   "build": {
     "beforeDevCommand": "bun run dev",
     "devUrl": "http://localhost:1420",
@@ -14,7 +14,7 @@
     "macOSPrivateApi": true,
     "windows": [
       {
-        "title": "Claude Clippy",
+        "title": "Chippy",
         "width": 800,
         "height": 600,
         "transparent": true,

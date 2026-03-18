@@ -1,4 +1,4 @@
-# Clippy
+# Chippy
 
 A modern reimagining of the Microsoft Office Assistant (Clippy, Rocky, etc.) from the late 1990s/early 2000s. Built with Tauri v2 + React + TypeScript, with Windows 95/98 aesthetics and LLM-powered responses via the Anthropic API.
 
@@ -44,5 +44,5 @@ This creates a draft GitHub Release with platform-specific installers attached. 
 Builds are unsigned. Users will need to right-click → Open the first time to bypass Gatekeeper, or run:
 
 ```bash
-xattr -cr /Applications/clippy.app
+xattr -cr /Applications/Chippy.app
 ```
