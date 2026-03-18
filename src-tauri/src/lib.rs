@@ -2,6 +2,7 @@ use std::sync::{Arc, Mutex};
 use tauri::Manager;
 
 #[derive(Clone, serde::Deserialize, Default)]
+#[allow(dead_code)]
 struct Rect {
     x: f64,
     y: f64,
