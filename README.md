@@ -2,6 +2,8 @@
 
 A modern reimagining of the Microsoft Office Assistant (Clippy, Rocky, etc.) from the late 1990s/early 2000s. Built with Tauri v2 + React + TypeScript, with Windows 95/98 aesthetics and LLM-powered responses via the Anthropic API.
 
+![Screenshot](.assets/screenshot.png)
+
 ## Features
 
 - Animated characters (Clippy, Rocky) via sprite sheets
