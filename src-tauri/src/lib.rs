@@ -97,6 +97,7 @@ pub fn run() {
 
     tauri::Builder::default()
         .plugin(tauri_plugin_opener::init())
+        .plugin(tauri_plugin_updater::Builder::new().build())
         .manage(state.clone())
         .invoke_handler(tauri::generate_handler![
             update_interactive_bounds,

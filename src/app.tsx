@@ -19,6 +19,7 @@ import {
   lockClickthrough,
 } from "./lib/clickthrough";
 import { getCurrentWindow } from "@tauri-apps/api/window";
+import { check } from "@tauri-apps/plugin-updater";
 
 type CharacterName = "Clippy" | "Rocky";
 
@@ -204,6 +205,17 @@ export default function App() {
   useEffect(() => {
     startClickthroughTracking();
     return () => stopClickthroughTracking();
+  }, []);
+
+  // Check for updates on startup
+  useEffect(() => {
+    check().then(async (update) => {
+      if (update) {
+        await update.downloadAndInstall();
+      }
+    }).catch(() => {
+      // Silently ignore update check failures (e.g. offline, dev mode)
+    });
   }, []);
 
   useEffect(() => {
