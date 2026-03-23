@@ -1,4 +1,6 @@
 import { useState, useEffect, useRef } from "react";
+import { getVersion } from "@tauri-apps/api/app";
+import { check, type Update } from "@tauri-apps/plugin-updater";
 import { PROVIDERS, type Provider } from "../lib/llm";
 
 interface SettingsPanelProps {
@@ -9,18 +11,28 @@ interface SettingsPanelProps {
 }
 
 const WIN98_FONT = "font-[Tahoma,Microsoft_Sans_Serif,sans-serif] text-[11px]";
-const WIN98_BORDER = "border-2 border-solid border-t-white border-l-white border-b-[#808080] border-r-[#808080]";
-const WIN98_BORDER_INSET = "border-2 border-solid border-t-[#808080] border-l-[#808080] border-b-white border-r-white";
+const WIN98_BORDER =
+  "border-2 border-solid border-t-white border-l-white border-b-[#808080] border-r-[#808080]";
+const WIN98_BORDER_INSET =
+  "border-2 border-solid border-t-[#808080] border-l-[#808080] border-b-white border-r-white";
 
 const PROVIDER_KEYS: Provider[] = ["anthropic", "openai", "google"];
 
-export default function SettingsPanel({ targetEl, getKey, onSave, onClose }: SettingsPanelProps) {
+export default function SettingsPanel({
+  targetEl,
+  getKey,
+  onSave,
+  onClose,
+}: SettingsPanelProps) {
   const [values, setValues] = useState<Record<Provider, string>>(() => ({
     anthropic: getKey("anthropic") ?? "",
     openai: getKey("openai") ?? "",
     google: getKey("google") ?? "",
   }));
   const elRef = useRef<HTMLDivElement>(null);
+  const [version, setVersion] = useState("");
+  const [update, setUpdate] = useState<Update | null>(null);
+  const [updating, setUpdating] = useState(false);
 
   useEffect(() => {
     setValues({
@@ -29,6 +41,15 @@ export default function SettingsPanel({ targetEl, getKey, onSave, onClose }: Set
       google: getKey("google") ?? "",
     });
   }, [getKey]);
+
+  useEffect(() => {
+    getVersion()
+      .then(setVersion)
+      .catch(() => {});
+    check()
+      .then((u) => setUpdate(u))
+      .catch(() => {});
+  }, []);
 
   function reposition() {
     if (!targetEl || !elRef.current) return;
@@ -51,7 +72,7 @@ export default function SettingsPanel({ targetEl, getKey, onSave, onClose }: Set
     };
     document.addEventListener("mousedown", onMouseDown);
     return () => document.removeEventListener("mousedown", onMouseDown);
-  // eslint-disable-next-line react-hooks/exhaustive-deps
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [onClose]);
 
   function handleSave() {
@@ -84,9 +105,42 @@ export default function SettingsPanel({ targetEl, getKey, onSave, onClose }: Set
           />
         </div>
       ))}
+      {version && (
+        <div
+          className={`${WIN98_FONT} text-[#808080] flex items-center justify-between`}
+        >
+          <span>
+            v{version}
+            {update ? ` → v${update.version}` : " (latest)"} by ggoggam
+          </span>
+          {update && (
+            <button
+              className={`${WIN98_FONT} bg-[#d4d0c8] ${WIN98_BORDER} py-[1px] px-2 cursor-pointer`}
+              disabled={updating}
+              onClick={async () => {
+                setUpdating(true);
+                await update.downloadAndInstall();
+                setUpdating(false);
+              }}
+            >
+              {updating ? "Updating..." : "Update"}
+            </button>
+          )}
+        </div>
+      )}
       <div className="flex gap-1">
-        <button className={`${WIN98_FONT} bg-[#d4d0c8] ${WIN98_BORDER} py-[2px] px-2.5 cursor-pointer`} onClick={handleSave}>Save</button>
-        <button className={`${WIN98_FONT} bg-[#d4d0c8] ${WIN98_BORDER} py-[2px] px-2.5 cursor-pointer`} onClick={onClose}>Cancel</button>
+        <button
+          className={`${WIN98_FONT} bg-[#d4d0c8] ${WIN98_BORDER} py-[2px] px-2.5 cursor-pointer`}
+          onClick={handleSave}
+        >
+          Save
+        </button>
+        <button
+          className={`${WIN98_FONT} bg-[#d4d0c8] ${WIN98_BORDER} py-[2px] px-2.5 cursor-pointer`}
+          onClick={onClose}
+        >
+          Cancel
+        </button>
       </div>
     </div>
   );
