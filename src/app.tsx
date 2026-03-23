@@ -20,6 +20,7 @@ import {
 } from "./lib/clickthrough";
 import { getCurrentWindow } from "@tauri-apps/api/window";
 import { check } from "@tauri-apps/plugin-updater";
+import { relaunch } from "@tauri-apps/plugin-process";
 
 type CharacterName = "Clippy" | "Rocky";
 
@@ -212,6 +213,7 @@ export default function App() {
     check().then(async (update) => {
       if (update) {
         await update.downloadAndInstall();
+        await relaunch();
       }
     }).catch(() => {
       // Silently ignore update check failures (e.g. offline, dev mode)
