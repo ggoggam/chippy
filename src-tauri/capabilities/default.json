@@ -8,6 +8,6 @@
     "core:window:allow-close",
     "opener:default",
     "updater:default",
-    "process:allow-relaunch"
+    "process:allow-restart"
   ]
 }
