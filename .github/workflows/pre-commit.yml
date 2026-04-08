@@ -48,7 +48,7 @@ jobs:
       - uses: actions/cache@v5
         with:
           path: |
-            ~/.cache/pre-commit
+            ~/.cache/prek
             ~/.cargo/registry
             ~/.cargo/git
             ~/.bun/install/cache
